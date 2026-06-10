@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -43,14 +43,14 @@ func storeLoad() {
 		return // first run, nothing to load
 	}
 	if err != nil {
-		log.Printf("warn: could not open %s: %v", dataFile, err)
+		slog.Warn("could not open data file", "file", dataFile, "err", err)
 		return
 	}
 	defer f.Close()
 
 	var d persistedData
 	if err := json.NewDecoder(f).Decode(&d); err != nil {
-		log.Printf("warn: could not decode %s: %v", dataFile, err)
+		slog.Warn("could not decode data file", "file", dataFile, "err", err)
 		return
 	}
 
@@ -77,20 +77,20 @@ func persistLocked() {
 	}
 	f, err := os.CreateTemp(dataDir, "protocms-*.json")
 	if err != nil {
-		log.Printf("warn: persist create temp: %v", err)
+		slog.Warn("persist: could not create temp file", "err", err)
 		return
 	}
 	tmpName := f.Name()
 	if err := json.NewEncoder(f).Encode(d); err != nil {
 		f.Close()
 		os.Remove(tmpName)
-		log.Printf("warn: persist encode: %v", err)
+		slog.Warn("persist: could not encode data", "err", err)
 		return
 	}
 	f.Close()
 	if err := os.Rename(tmpName, dataFile); err != nil {
 		os.Remove(tmpName)
-		log.Printf("warn: persist rename: %v", err)
+		slog.Warn("persist: could not rename temp file", "tmp", tmpName, "dest", dataFile, "err", err)
 	}
 }
 

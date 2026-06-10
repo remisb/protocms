@@ -2,13 +2,17 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	if err := os.MkdirAll("data", 0755); err != nil {
-		panic(err)
+		slog.Error("could not create data directory", "err", err)
+		os.Exit(1)
 	}
 	storeLoad()
 
@@ -31,20 +35,26 @@ func main() {
 	printRoutes()
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {
-		panic(err)
+		slog.Error("server error", "err", err)
+		os.Exit(1)
 	}
 }
 
 func printRoutes() {
-	fmt.Println("\nAvailable Endpoints (with named wildcards):")
-	fmt.Println("  GET    /api/health")
-	fmt.Println("  GET    /api/content-types")
-	fmt.Println("  POST   /api/content-types")
-	fmt.Println("  GET    /api/content/{contentType}")
-	fmt.Println("  GET    /api/content/{contentType}/{id}")
-	fmt.Println("  POST   /api/content/{contentType}")
-	fmt.Println("  PUT    /api/content/{contentType}/{id}")
-	fmt.Println("  DELETE /api/content/{contentType}/{id}")
+	routes := []string{
+		"GET    /api/health",
+		"GET    /api/content-types",
+		"POST   /api/content-types",
+		"GET    /api/content/{contentType}",
+		"GET    /api/content/{contentType}/{id}",
+		"POST   /api/content/{contentType}",
+		"PUT    /api/content/{contentType}/{id}",
+		"DELETE /api/content/{contentType}/{id}",
+	}
+	for _, r := range routes {
+		slog.Info("route registered", "route", r)
+	}
+
 	fmt.Println("\nTry with curl:")
 	fmt.Println(`  curl -X POST http://localhost:8080/api/content-types -H "Content-Type: application/json" -d '{"name":"post","fields":{"title":"string","body":"text"}}'`)
 	fmt.Println(`  curl -X POST http://localhost:8080/api/content/post -H "Content-Type: application/json" -d '{"title":"Hello","body":"World"}'`)
