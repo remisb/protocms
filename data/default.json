@@ -1,0 +1,1 @@
+{"next_id":3,"schemas":{"post":{"name":"post","fields":{"body":"text","title":"string"}}},"content":{"post":[{"body":"World","id":1,"title":"Hello"},{"body":"Post 2 body !","id":2,"title":"Post 2"}]}}

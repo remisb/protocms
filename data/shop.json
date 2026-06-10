@@ -1,0 +1,71 @@
+{
+  "next_id": 61,
+  "schemas": {
+    "category": {
+      "name": "category",
+      "fields": {
+        "description": "text",
+        "name": "string",
+        "slug": "string"
+      }
+    },
+    "product": {
+      "name": "product",
+      "fields": {
+        "category_id": "integer",
+        "description": "text",
+        "in_stock": "boolean",
+        "name": "string",
+        "price": "number",
+        "shirt_fit": "string",
+        "sizes": "string",
+        "sku": "string"
+      }
+    },
+    "tier": {
+      "name": "tier",
+      "fields": {
+        "discount_percent": "integer",
+        "min_spend": "number",
+        "name": "string",
+        "perks": "string"
+      }
+    }
+  },
+  "content": {
+    "category": [
+      { "id": 1, "name": "T-Shirts",    "slug": "t-shirts",    "description": "Casual and graphic tees for everyday wear." },
+      { "id": 2, "name": "Hoodies",     "slug": "hoodies",     "description": "Comfortable pullover and zip-up hoodies." },
+      { "id": 3, "name": "Accessories", "slug": "accessories", "description": "Hats, bags and other accessories." },
+      { "id": 4, "name": "Limited Drops","slug": "limited",    "description": "Exclusive limited-edition items." }
+    ],
+    "product": [
+      { "id": 5,  "sku": "TS-001", "name": "Classic Logo Tee",          "description": "Heavyweight 100% cotton tee with embroidered chest logo.",          "price": 29.99, "category_id": 1, "sizes": "XS,S,M,L,XL,XXL", "shirt_fit": "regular",  "in_stock": true  },
+      { "id": 6,  "sku": "TS-002", "name": "Washed Vintage Tee",        "description": "Acid-washed retro feel tee, pre-shrunk.",                           "price": 34.99, "category_id": 1, "sizes": "S,M,L,XL",       "shirt_fit": "oversized","in_stock": true  },
+      { "id": 7,  "sku": "TS-003", "name": "Tie-Dye Spiral Tee",        "description": "Hand tie-dyed spiral pattern, each piece unique.",                  "price": 39.99, "category_id": 1, "sizes": "S,M,L,XL,XXL",   "shirt_fit": "relaxed",  "in_stock": true  },
+      { "id": 8,  "sku": "TS-004", "name": "Pocket Stripe Tee",         "description": "Lightweight striped tee with small chest pocket.",                  "price": 27.99, "category_id": 1, "sizes": "XS,S,M,L",       "shirt_fit": "slim",     "in_stock": true  },
+      { "id": 9,  "sku": "TS-005", "name": "Graphic Print Tee",         "description": "Bold screen-printed graphic on a soft ring-spun cotton base.",      "price": 32.99, "category_id": 1, "sizes": "S,M,L,XL,XXL",   "shirt_fit": "regular",  "in_stock": false },
+      { "id": 10, "sku": "TS-006", "name": "Essential Black Tee",       "description": "Clean minimal black tee, wardrobe staple.",                         "price": 24.99, "category_id": 1, "sizes": "XS,S,M,L,XL,XXL","shirt_fit": "regular",  "in_stock": true  },
+      { "id": 11, "sku": "HD-001", "name": "Signature Pullover Hoodie", "description": "Brushed fleece interior, kangaroo pocket, ribbed cuffs.",           "price": 64.99, "category_id": 2, "sizes": "S,M,L,XL,XXL",   "shirt_fit": "regular",  "in_stock": true  },
+      { "id": 12, "sku": "HD-002", "name": "Zip-Up Tech Hoodie",        "description": "Full-zip hoodie with two side pockets and media port.",             "price": 74.99, "category_id": 2, "sizes": "S,M,L,XL",       "shirt_fit": "slim",     "in_stock": true  },
+      { "id": 13, "sku": "HD-003", "name": "Oversized Crop Hoodie",     "description": "Cropped boxy silhouette, dropped shoulders.",                       "price": 69.99, "category_id": 2, "sizes": "XS,S,M,L",       "shirt_fit": "oversized","in_stock": true  },
+      { "id": 14, "sku": "HD-004", "name": "Quarter-Zip Sweatshirt",    "description": "Quarter-zip collar with embroidered logo on chest.",                "price": 59.99, "category_id": 2, "sizes": "S,M,L,XL,XXL",   "shirt_fit": "regular",  "in_stock": false },
+      { "id": 15, "sku": "HD-005", "name": "Heavyweight Fleece Hoodie", "description": "500gsm heavyweight fleece, perfect for cold weather.",              "price": 84.99, "category_id": 2, "sizes": "M,L,XL,XXL",     "shirt_fit": "relaxed",  "in_stock": true  },
+      { "id": 16, "sku": "AC-001", "name": "Snapback Cap",              "description": "6-panel structured snapback with flat brim and woven patch.",       "price": 34.99, "category_id": 3, "sizes": "one-size",        "shirt_fit": "",         "in_stock": true  },
+      { "id": 17, "sku": "AC-002", "name": "Dad Hat",                   "description": "Unstructured 5-panel cap with curved brim and brass buckle.",       "price": 29.99, "category_id": 3, "sizes": "one-size",        "shirt_fit": "",         "in_stock": true  },
+      { "id": 18, "sku": "AC-003", "name": "Tote Bag",                  "description": "Heavy-duty canvas tote, 10L capacity, screen-printed logo.",        "price": 19.99, "category_id": 3, "sizes": "one-size",        "shirt_fit": "",         "in_stock": true  },
+      { "id": 19, "sku": "AC-004", "name": "Beanie",                    "description": "Ribbed knit beanie with fold-up cuff and subtle logo badge.",       "price": 24.99, "category_id": 3, "sizes": "one-size",        "shirt_fit": "",         "in_stock": true  },
+      { "id": 20, "sku": "AC-005", "name": "Embroidered Socks (3-pack)","description": "Mid-calf cotton socks with embroidered ankle logo.",                "price": 17.99, "category_id": 3, "sizes": "S,M,L",          "shirt_fit": "",         "in_stock": true  },
+      { "id": 21, "sku": "AC-006", "name": "Cross-Body Bag",            "description": "Water-resistant nylon cross-body bag with zip pockets.",            "price": 44.99, "category_id": 3, "sizes": "one-size",        "shirt_fit": "",         "in_stock": false },
+      { "id": 22, "sku": "LD-001", "name": "Founder Edition Tee",       "description": "Limited run of 100. Numbered tag, heavyweight jersey cotton.",      "price": 89.99, "category_id": 4, "sizes": "S,M,L,XL",       "shirt_fit": "regular",  "in_stock": true  },
+      { "id": 23, "sku": "LD-002", "name": "Collab Drop Hoodie",        "description": "Artist collab, heat-transfer print, limited to 200 pieces.",       "price": 119.99,"category_id": 4, "sizes": "M,L,XL",         "shirt_fit": "oversized","in_stock": true  },
+      { "id": 24, "sku": "LD-003", "name": "Anniversary Bomber Jacket", "description": "Satin bomber, embroidered back panel, numbered edition of 50.",    "price": 199.99,"category_id": 4, "sizes": "S,M,L,XL",       "shirt_fit": "regular",  "in_stock": true  }
+    ],
+    "tier": [
+      { "id": 25, "name": "Bronze", "min_spend": 0,      "discount_percent": 0,  "perks": "Free shipping on orders over £50" },
+      { "id": 26, "name": "Silver", "min_spend": 150,    "discount_percent": 5,  "perks": "Free shipping on all orders,Early access to drops" },
+      { "id": 27, "name": "Gold",   "min_spend": 350,    "discount_percent": 10, "perks": "Free shipping on all orders,Early access to drops,Exclusive member tee" },
+      { "id": 28, "name": "Platinum","min_spend": 750,   "discount_percent": 15, "perks": "Free shipping on all orders,Priority early access,Exclusive member tee,Free gift with every order" }
+    ]
+  }
+}

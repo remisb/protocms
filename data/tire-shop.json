@@ -1,0 +1,97 @@
+{
+  "next_id": 91,
+  "schemas": {
+    "brand": {
+      "name": "brand",
+      "fields": {
+        "country": "string",
+        "description": "text",
+        "name": "string",
+        "slug": "string"
+      }
+    },
+    "category": {
+      "name": "category",
+      "fields": {
+        "description": "text",
+        "name": "string",
+        "slug": "string"
+      }
+    },
+    "tire": {
+      "name": "tire",
+      "fields": {
+        "brand_id": "integer",
+        "category_id": "integer",
+        "description": "text",
+        "fuel_efficiency": "string",
+        "in_stock": "boolean",
+        "load_index": "integer",
+        "name": "string",
+        "noise_db": "integer",
+        "price": "number",
+        "run_flat": "boolean",
+        "season": "string",
+        "size": "string",
+        "speed_rating": "string",
+        "wet_grip": "string"
+      }
+    },
+    "tier": {
+      "name": "tier",
+      "fields": {
+        "discount_percent": "integer",
+        "min_spend": "number",
+        "name": "string",
+        "perks": "string"
+      }
+    }
+  },
+  "content": {
+    "brand": [
+      { "id": 1, "name": "Michelin",    "slug": "michelin",    "country": "France",  "description": "World's largest tyre manufacturer, known for longevity and fuel efficiency." },
+      { "id": 2, "name": "Continental", "slug": "continental", "country": "Germany", "description": "Premium German tyre brand with outstanding wet and dry performance." },
+      { "id": 3, "name": "Bridgestone", "slug": "bridgestone", "country": "Japan",   "description": "Global OE supplier with strong performance and touring ranges." },
+      { "id": 4, "name": "Pirelli",     "slug": "pirelli",     "country": "Italy",   "description": "High-performance tyres, exclusive OE fitment on sports and luxury cars." },
+      { "id": 5, "name": "Goodyear",    "slug": "goodyear",    "country": "USA",     "description": "Broad range from budget touring to ultra-high performance." },
+      { "id": 6, "name": "Hankook",     "slug": "hankook",     "country": "South Korea", "description": "Value-for-money tyres with improving performance credentials." }
+    ],
+    "category": [
+      { "id": 7,  "name": "Summer",      "slug": "summer",      "description": "Optimised for dry and wet roads in warm conditions above 7°C." },
+      { "id": 8,  "name": "Winter",      "slug": "winter",      "description": "Designed for snow, ice and cold temperatures below 7°C." },
+      { "id": 9,  "name": "All-Season",  "slug": "all-season",  "description": "Year-round versatility across summer and light winter conditions." },
+      { "id": 10, "name": "Performance", "slug": "performance", "description": "Ultra-high performance tyres for sports and track-day use." },
+      { "id": 11, "name": "SUV / 4x4",  "slug": "suv-4x4",    "description": "Reinforced tyres for SUVs, crossovers and light off-road use." }
+    ],
+    "tire": [
+      { "id": 12, "name": "Michelin Pilot Sport 5",           "description": "Flagship summer performance tyre with EverGrip technology for long-lasting wet grip.",        "price": 129.99, "brand_id": 1, "category_id": 10, "size": "225/45R17",  "season": "summer",     "fuel_efficiency": "A", "wet_grip": "A", "noise_db": 70, "load_index": 94, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 13, "name": "Michelin Pilot Sport 5",           "description": "Flagship summer performance tyre — wider fitment.",                                           "price": 159.99, "brand_id": 1, "category_id": 10, "size": "255/35R19",  "season": "summer",     "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 72, "load_index": 96, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 14, "name": "Michelin CrossClimate 2",          "description": "Award-winning all-season tyre, 3PMSF rated, excellent year-round safety.",                   "price": 119.99, "brand_id": 1, "category_id": 9,  "size": "205/55R16",  "season": "all-season", "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 71, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 15, "name": "Michelin Alpin 6",                 "description": "Winter tyre engineered for cold, snowy and icy conditions.",                                  "price": 109.99, "brand_id": 1, "category_id": 8,  "size": "205/55R16",  "season": "winter",     "fuel_efficiency": "C", "wet_grip": "B", "noise_db": 69, "load_index": 91, "speed_rating": "H", "run_flat": false, "in_stock": true  },
+      { "id": 16, "name": "Continental PremiumContact 7",     "description": "Next-generation premium summer tyre with improved wet braking and reduced rolling resistance.", "price": 124.99, "brand_id": 2, "category_id": 7,  "size": "225/45R17",  "season": "summer",     "fuel_efficiency": "A", "wet_grip": "A", "noise_db": 70, "load_index": 91, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 17, "name": "Continental WinterContact TS 870", "description": "Latest generation winter tyre, outstanding on snow and ice.",                                 "price": 114.99, "brand_id": 2, "category_id": 8,  "size": "205/55R16",  "season": "winter",     "fuel_efficiency": "C", "wet_grip": "A", "noise_db": 68, "load_index": 91, "speed_rating": "H", "run_flat": false, "in_stock": true  },
+      { "id": 18, "name": "Continental AllSeasonContact 2",   "description": "Balanced all-season tyre with strong wet and winter performance.",                            "price": 118.99, "brand_id": 2, "category_id": 9,  "size": "205/55R16",  "season": "all-season", "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 71, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": false },
+      { "id": 19, "name": "Continental SportContact 7",       "description": "Ultra-high performance summer tyre for sports cars and supercars.",                           "price": 219.99, "brand_id": 2, "category_id": 10, "size": "265/30R20",  "season": "summer",     "fuel_efficiency": "C", "wet_grip": "A", "noise_db": 74, "load_index": 94, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 20, "name": "Bridgestone Turanza T005",         "description": "Premium touring tyre for saloons and estates, low noise and long mileage.",                  "price": 99.99,  "brand_id": 3, "category_id": 7,  "size": "205/55R16",  "season": "summer",     "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 70, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 21, "name": "Bridgestone Blizzak LM005",        "description": "Best-in-class winter tyre, multiple award winner, exceptional snow traction.",               "price": 115.99, "brand_id": 3, "category_id": 8,  "size": "225/45R17",  "season": "winter",     "fuel_efficiency": "C", "wet_grip": "A", "noise_db": 70, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 22, "name": "Bridgestone Potenza Sport",        "description": "High-performance summer tyre with motorsport-derived tread pattern.",                        "price": 174.99, "brand_id": 3, "category_id": 10, "size": "245/40R18",  "season": "summer",     "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 72, "load_index": 97, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 23, "name": "Bridgestone Dueler H/P Sport",     "description": "SUV-specific performance tyre, excellent handling and comfort.",                             "price": 144.99, "brand_id": 3, "category_id": 11, "size": "235/55R18",  "season": "summer",     "fuel_efficiency": "C", "wet_grip": "B", "noise_db": 71, "load_index": 100,"speed_rating": "V", "run_flat": false, "in_stock": false },
+      { "id": 24, "name": "Pirelli P Zero (PZ4)",             "description": "OE fitment on Ferrari, Lamborghini and Porsche. Extreme dry and wet performance.",           "price": 249.99, "brand_id": 4, "category_id": 10, "size": "245/35R20",  "season": "summer",     "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 73, "load_index": 95, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 25, "name": "Pirelli Cinturato P7",             "description": "Premium eco-touring tyre, low rolling resistance and long wear life.",                       "price": 109.99, "brand_id": 4, "category_id": 7,  "size": "225/50R17",  "season": "summer",     "fuel_efficiency": "A", "wet_grip": "A", "noise_db": 69, "load_index": 94, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 26, "name": "Pirelli Sottozero 3",              "description": "Premium winter tyre, OE fitment on BMW, Mercedes and Audi.",                                 "price": 139.99, "brand_id": 4, "category_id": 8,  "size": "225/45R17",  "season": "winter",     "fuel_efficiency": "D", "wet_grip": "B", "noise_db": 70, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 27, "name": "Pirelli Scorpion Verde",           "description": "SUV/4x4 all-season tyre, low noise, high comfort and good all-round safety.",               "price": 134.99, "brand_id": 4, "category_id": 11, "size": "235/60R18",  "season": "all-season", "fuel_efficiency": "B", "wet_grip": "B", "noise_db": 70, "load_index": 103,"speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 28, "name": "Goodyear Eagle F1 Asymmetric 6",  "description": "Award-winning ultra-high performance summer tyre with MaxTouch Construction.",               "price": 134.99, "brand_id": 5, "category_id": 10, "size": "225/45R17",  "season": "summer",     "fuel_efficiency": "A", "wet_grip": "A", "noise_db": 70, "load_index": 91, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 29, "name": "Goodyear Vector 4Seasons Gen-3",  "description": "Top-rated all-season tyre, 3PMSF certified, strong wet and winter performance.",            "price": 115.99, "brand_id": 5, "category_id": 9,  "size": "205/55R16",  "season": "all-season", "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 71, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 30, "name": "Goodyear UltraGrip 9+",           "description": "Reliable winter tyre for family cars, excellent ice and snow braking.",                      "price": 99.99,  "brand_id": 5, "category_id": 8,  "size": "195/65R15",  "season": "winter",     "fuel_efficiency": "C", "wet_grip": "B", "noise_db": 69, "load_index": 91, "speed_rating": "H", "run_flat": false, "in_stock": true  },
+      { "id": 31, "name": "Hankook Ventus S1 evo3",          "description": "High-performance summer tyre, OE on Audi and Hyundai models.",                              "price": 94.99,  "brand_id": 6, "category_id": 10, "size": "225/45R17",  "season": "summer",     "fuel_efficiency": "B", "wet_grip": "A", "noise_db": 71, "load_index": 91, "speed_rating": "Y", "run_flat": false, "in_stock": true  },
+      { "id": 32, "name": "Hankook Kinergy 4S2",             "description": "All-season tyre with 3PMSF rating, good value and consistent performance.",                 "price": 84.99,  "brand_id": 6, "category_id": 9,  "size": "205/55R16",  "season": "all-season", "fuel_efficiency": "B", "wet_grip": "B", "noise_db": 71, "load_index": 91, "speed_rating": "V", "run_flat": false, "in_stock": true  },
+      { "id": 33, "name": "Hankook Winter i*cept RS3",       "description": "Affordable winter tyre with strong snow braking and good ice grip.",                         "price": 79.99,  "brand_id": 6, "category_id": 8,  "size": "195/65R15",  "season": "winter",     "fuel_efficiency": "D", "wet_grip": "C", "noise_db": 70, "load_index": 91, "speed_rating": "T", "run_flat": false, "in_stock": true  }
+    ],
+    "tier": [
+      { "id": 84, "name": "Basic",      "min_spend": 0,    "discount_percent": 0,  "perks": "Free valve stems,Free tyre disposal" },
+      { "id": 85, "name": "Silver",     "min_spend": 200,  "discount_percent": 5,  "perks": "Free valve stems,Free tyre disposal,Free tyre rotation check" },
+      { "id": 86, "name": "Gold",       "min_spend": 500,  "discount_percent": 10, "perks": "Free valve stems,Free tyre disposal,Free tyre rotation,Free wheel balancing" },
+      { "id": 87, "name": "Platinum",   "min_spend": 1000, "discount_percent": 15, "perks": "Free valve stems,Free tyre disposal,Free tyre rotation,Free wheel balancing,Free TPMS reset,Priority fitting slot" }
+    ]
+  }
+}
