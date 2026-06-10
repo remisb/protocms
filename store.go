@@ -25,7 +25,9 @@ type persistedData struct {
 }
 
 const dataDir = "data"
-const dataFile = "data/data.json"
+
+var dataFile string
+var datasetName string
 
 // In-memory stores (data resets on restart)
 var (
@@ -35,11 +37,49 @@ var (
 	nextID       int = 1
 )
 
+// storeInit resolves the data file path for the given dataset name
+// and ensures the data directory exists.
+func storeInit(dataset string) {
+	datasetName = dataset
+	dataFile = dataDir + "/" + datasetName + ".json"
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		slog.Error("could not create data directory", "dir", dataDir, "err", err)
+		os.Exit(1)
+	}
+	slog.Info("data file", "path", dataFile)
+}
+
+// DatasetStats holds statistics about the active dataset.
+type DatasetStats struct {
+	Dataset      string         `json:"dataset"`
+	ContentTypes int            `json:"content_types"`
+	TotalItems   int            `json:"total_items"`
+	ItemsPerType map[string]int `json:"items_per_type"`
+}
+
+func storeGetStats() DatasetStats {
+	mu.RLock()
+	defer mu.RUnlock()
+	itemsPerType := make(map[string]int, len(schemas))
+	total := 0
+	for name := range schemas {
+		count := len(contentStore[name])
+		itemsPerType[name] = count
+		total += count
+	}
+	return DatasetStats{
+		Dataset:      datasetName,
+		ContentTypes: len(schemas),
+		TotalItems:   total,
+		ItemsPerType: itemsPerType,
+	}
+}
+
 // storeLoad reads persisted data from disk into the in-memory store.
 // Must be called once before the HTTP server starts.
-func storeLoad() {
+func storeLoad(dataset string) {
 	f, err := os.Open(dataFile)
-	if os.IsNotExist(err) {
+	if os.IsNotExist(err) && dataFile != dataDir+"/"+datasetName+".json" {
 		return // first run, nothing to load
 	}
 	if err != nil {
@@ -180,4 +220,35 @@ func storeDeleteContent(contentType, idStr string) bool {
 		}
 	}
 	return false
+}
+
+// storeFilterContent returns items of contentType where every field in filters matches.
+// Matching is done by string-converting stored values, which covers numbers, booleans and strings.
+func storeFilterContent(contentType string, filters map[string]string) ([]ContentItem, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	items, exists := contentStore[contentType]
+	if !exists {
+		return nil, false
+	}
+	result := make([]ContentItem, 0)
+	for _, item := range items {
+		if itemMatchesFilters(item, filters) {
+			result = append(result, item)
+		}
+	}
+	return result, true
+}
+
+func itemMatchesFilters(item ContentItem, filters map[string]string) bool {
+	for field, want := range filters {
+		val, ok := item[field]
+		if !ok {
+			return false
+		}
+		if fmt.Sprintf("%v", val) != want {
+			return false
+		}
+	}
+	return true
 }

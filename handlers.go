@@ -16,6 +16,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func statsHandler(w http.ResponseWriter, r *http.Request) {
+	jsonResponse(w, http.StatusOK, storeGetStats())
+}
+
 // Content Types
 func getContentTypesHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, storeGetAllContentTypes())
@@ -43,7 +47,23 @@ func listContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, exists := storeListContent(contentType)
+	// Collect field filters from query params, excluding reserved keys.
+	reserved := map[string]bool{"limit": true}
+	filters := make(map[string]string)
+	for key, vals := range r.URL.Query() {
+		if !reserved[key] {
+			filters[key] = vals[0]
+		}
+	}
+
+	var items []ContentItem
+	var exists bool
+	if len(filters) > 0 {
+		items, exists = storeFilterContent(contentType, filters)
+	} else {
+		items, exists = storeListContent(contentType)
+	}
+
 	if !exists {
 		jsonResponse(w, http.StatusOK, []ContentItem{})
 		return
