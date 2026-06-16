@@ -1,0 +1,403 @@
+openapi: 3.1.0
+info:
+  title: ProtoCMS API
+  description: |
+    A prototype in-memory headless CMS built with Go 1.26 stdlib.
+    Supports dynamic content types and flexible content items persisted to JSON on disk.
+  version: 1.0.0
+  contact: {}
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Service health and diagnostics
+  - name: Stats
+    description: Dataset statistics
+  - name: Content Types
+    description: Manage content type schemas
+  - name: Content
+    description: Manage content items for a given content type
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                    example: Go 1.26 stdlib POC with Field Types
+                  timestamp:
+                    type: string
+                    example: "2026-06-13 10:00:00.000000000 +0000 UTC"
+
+  /api/stats:
+    get:
+      summary: Get dataset statistics
+      operationId: getStats
+      tags: [Stats]
+      responses:
+        '200':
+          description: Current dataset statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetStats'
+
+  /api/content-types:
+    get:
+      summary: List all content types
+      operationId: listContentTypes
+      tags: [Content Types]
+      responses:
+        '200':
+          description: Array of registered content type schemas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentType'
+
+    post:
+      summary: Create a content type
+      operationId: createContentType
+      tags: [Content Types]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentType'
+            example:
+              name: post
+              fields:
+                title:
+                  type: text
+                  required: true
+                body:
+                  type: textarea
+      responses:
+        '201':
+          description: Content type created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentType'
+        '400':
+          description: Invalid request body or missing name/fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/content/{contentType}:
+    parameters:
+      - $ref: '#/components/parameters/contentType'
+
+    get:
+      summary: List content items
+      operationId: listContent
+      tags: [Content]
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of items to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: <fieldName>
+          in: query
+          description: |
+            Any field name defined on the content type can be used as a filter.
+            Values are matched as strings (works for strings, numbers, booleans).
+            Example: `?category_id=1`
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of content items (empty array if type has no items)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentItem'
+        '400':
+          description: Missing content type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a content item
+      operationId: createContent
+      tags: [Content]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentItemInput'
+            example:
+              title: Hello
+              body: World
+      responses:
+        '201':
+          description: Content item created, auto-assigned `id` included
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '400':
+          description: Missing content type, unknown content type, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/content/{contentType}/{id}:
+    parameters:
+      - $ref: '#/components/parameters/contentType'
+      - $ref: '#/components/parameters/id'
+
+    get:
+      summary: Get a single content item
+      operationId: getContent
+      tags: [Content]
+      responses:
+        '200':
+          description: The requested content item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '400':
+          description: Missing content type or id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update a content item
+      operationId: updateContent
+      tags: [Content]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentItemInput'
+            example:
+              title: Updated Title
+              body: Updated body text
+      responses:
+        '200':
+          description: Updated content item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '400':
+          description: Missing content type or id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete a content item
+      operationId: deleteContent
+      tags: [Content]
+      responses:
+        '204':
+          description: Item deleted successfully (no body)
+        '400':
+          description: Missing content type or id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    contentType:
+      name: contentType
+      in: path
+      required: true
+      description: Name of the content type (e.g. `post`, `dish`, `category`)
+      schema:
+        type: string
+        example: post
+
+    id:
+      name: id
+      in: path
+      required: true
+      description: Numeric ID of the content item
+      schema:
+        type: integer
+        example: 1
+
+  schemas:
+    FieldType:
+      type: string
+      description: Supported field type identifiers
+      enum:
+        - text
+        - textarea
+        - richText
+        - number
+        - boolean
+        - date
+        - datetime
+        - image
+        - media
+        - select
+        - reference
+        - slug
+        - json
+
+    FieldDefinition:
+      type: object
+      required: [type]
+      properties:
+        type:
+          $ref: '#/components/schemas/FieldType'
+        required:
+          type: boolean
+          description: Whether this field must be present when creating an item
+          default: false
+        options:
+          type: array
+          description: Allowed values for `select` fields
+          items:
+            type: string
+          example: [tech, news, tutorial]
+        refType:
+          type: string
+          description: Target content type name for `reference` fields
+          example: author
+        default:
+          description: Default value for this field (any type)
+      example:
+        type: text
+        required: true
+
+    ContentType:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Unique identifier / slug for this content type
+          example: post
+        fields:
+          type: object
+          description: |
+            Map of field name → FieldDefinition object describing the field's type and constraints.
+          additionalProperties:
+            $ref: '#/components/schemas/FieldDefinition'
+          example:
+            title:
+              type: text
+              required: true
+            body:
+              type: textarea
+            published:
+              type: boolean
+              default: false
+
+    ContentItem:
+      type: object
+      description: |
+        A flexible key-value document. Every item always contains an auto-assigned `id` (integer).
+        All other fields are defined by the content type's schema.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Auto-assigned item identifier
+          example: 1
+      additionalProperties: true
+      example:
+        id: 1
+        title: Hello
+        body: World
+
+    ContentItemInput:
+      type: object
+      description: |
+        Fields to set when creating or updating a content item.
+        The `id` field is ignored if provided — the server always controls it.
+      additionalProperties: true
+      example:
+        title: Hello
+        body: World
+
+    DatasetStats:
+      type: object
+      properties:
+        dataset:
+          type: string
+          description: Name of the active dataset
+          example: default
+        content_types:
+          type: integer
+          description: Number of registered content type schemas
+          example: 1
+        total_items:
+          type: integer
+          description: Total number of content items across all types
+          example: 2
+        items_per_type:
+          type: object
+          description: Item count broken down by content type name
+          additionalProperties:
+            type: integer
+          example:
+            post: 2
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: not found

@@ -5,13 +5,43 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"sync"
+	"time"
 )
+
+// FieldType represents supported field types
+type FieldType string
+
+const (
+	FieldText      FieldType = "text"
+	FieldTextarea  FieldType = "textarea"
+	FieldRichText  FieldType = "richText"
+	FieldNumber    FieldType = "number"
+	FieldBoolean   FieldType = "boolean"
+	FieldDate      FieldType = "date"
+	FieldDateTime  FieldType = "datetime"
+	FieldImage     FieldType = "image"
+	FieldMedia     FieldType = "media"
+	FieldSelect    FieldType = "select"
+	FieldReference FieldType = "reference"
+	FieldSlug      FieldType = "slug"
+	FieldJSON      FieldType = "json"
+)
+
+// FieldDefinition defines a field in a content type schema
+type FieldDefinition struct {
+	Type     FieldType `json:"type"`
+	Required bool      `json:"required,omitempty"`
+	Options  []string  `json:"options,omitempty"` // for select/enum
+	RefType  string    `json:"refType,omitempty"` // for reference
+	Default  any       `json:"default,omitempty"`
+}
 
 // ContentType defines a simple schema
 type ContentType struct {
-	Name   string            `json:"name"`
-	Fields map[string]string `json:"fields,omitempty"`
+	Name   string                     `json:"name"`
+	Fields map[string]FieldDefinition `json:"fields,omitempty"`
 }
 
 // ContentItem is flexible for any content structure (using `any`)
@@ -32,9 +62,9 @@ var datasetName string
 // In-memory stores (data resets on restart)
 var (
 	mu           sync.RWMutex
-	contentStore     = make(map[string][]ContentItem)
-	schemas          = make(map[string]ContentType)
-	nextID       int = 1
+	contentStore = make(map[string][]ContentItem)
+	schemas      = make(map[string]ContentType)
+	nextID       = 1
 )
 
 // storeInit resolves the data file path for the given dataset name
@@ -47,6 +77,72 @@ func storeInit(dataset string) {
 		os.Exit(1)
 	}
 	slog.Info("data file", "path", dataFile)
+}
+
+// ValidateField checks if a value matches the field definition
+func validateField(value any, field FieldDefinition) error {
+	if value == nil {
+		if field.Required {
+			return fmt.Errorf("field is required")
+		}
+		return nil
+	}
+
+	switch field.Type {
+	case FieldText, FieldTextarea, FieldRichText, FieldSlug:
+		if _, ok := value.(string); !ok {
+			return fmt.Errorf("expected string")
+		}
+	case FieldNumber:
+		switch v := value.(type) {
+		case float64, int, int64:
+			// ok
+		case string:
+			if _, err := strconv.ParseFloat(v, 64); err != nil {
+				return fmt.Errorf("expected number")
+			}
+		default:
+			return fmt.Errorf("expected number")
+		}
+	case FieldBoolean:
+		if _, ok := value.(bool); !ok {
+			return fmt.Errorf("expected boolean")
+		}
+	case FieldDate, FieldDateTime:
+		if s, ok := value.(string); ok {
+			_, err := time.Parse(time.RFC3339, s)
+			if err != nil {
+				_, err = time.Parse("2006-01-02", s)
+				if err != nil {
+					return fmt.Errorf("invalid date format")
+				}
+			}
+		} else {
+			return fmt.Errorf("expected date string")
+		}
+	case FieldSelect:
+		if str, ok := value.(string); ok {
+			for _, opt := range field.Options {
+				if opt == str {
+					return nil
+				}
+			}
+			return fmt.Errorf("value not in allowed options")
+		}
+	case FieldReference:
+		if _, ok := value.(string); !ok { // simple ID reference
+			return fmt.Errorf("expected reference ID (string)")
+		}
+	case FieldImage, FieldMedia:
+		if _, ok := value.(string); !ok && value != nil {
+			return fmt.Errorf("expected URL string for media")
+		}
+	case FieldJSON:
+		// any is allowed
+	default:
+		// flexible
+	}
+	return nil
 }
 
 // DatasetStats holds statistics about the active dataset.
@@ -75,7 +171,7 @@ func storeGetStats() DatasetStats {
 	}
 }
 
-// storeLoad reads persisted data from disk into the in-memory store.
+// storeLoad reads persisted data from the disk into the in-memory store.
 // Must be called once before the HTTP server starts.
 func storeLoad(dataset string) {
 	f, err := os.Open(dataFile)
@@ -144,6 +240,13 @@ func storeGetAllContentTypes() []ContentType {
 	return types
 }
 
+func storeGetSchema(contentType string) (ContentType, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	schema, ok := schemas[contentType]
+	return schema, ok
+}
+
 func storeCreateContentType(ct ContentType) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -179,17 +282,44 @@ func storeGetSingleContent(contentType, idStr string) (ContentItem, bool) {
 	return nil, false
 }
 
-func storeCreateContent(contentType string, item ContentItem) ContentItem {
+func storeGetContentType(contentType string) (ContentType, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	cType, ok := schemas[contentType]
+	if !ok {
+		return ContentType{}, fmt.Errorf("unknown content type %s", contentType)
+	}
+	return cType, nil
+}
+
+func storeCreateContent(contentType string, item ContentItem) (ContentItem, error) {
+	schema, err := storeGetContentType(contentType)
+	if err != nil {
+		return ContentItem{}, err
+	}
+
+	// Validate against schema
+	for fieldName, fieldDef := range schema.Fields {
+		if err := validateField(item[fieldName], fieldDef); err != nil {
+			return ContentItem{}, fmt.Errorf("invalid field %s", fieldName)
+		}
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 	item["id"] = nextID
 	nextID++
 	contentStore[contentType] = append(contentStore[contentType], item)
 	persistLocked()
-	return item
+	return item, nil
 }
 
-func storeUpdateContent(contentType, idStr string, update ContentItem) (ContentItem, bool) {
+func storeUpdateContent(contentType, idStr string, update ContentItem) (ContentItem, error) {
+	_, err := storeGetContentType(contentType)
+	if err != nil {
+		return ContentItem{}, err
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 	items := contentStore[contentType]
@@ -202,10 +332,10 @@ func storeUpdateContent(contentType, idStr string, update ContentItem) (ContentI
 			}
 			items[i] = item
 			persistLocked()
-			return item, true
+			return item, nil
 		}
 	}
-	return nil, false
+	return ContentItem{}, fmt.Errorf("content item with id %s not found", idStr)
 }
 
 func storeDeleteContent(contentType, idStr string) bool {
@@ -223,7 +353,7 @@ func storeDeleteContent(contentType, idStr string) bool {
 }
 
 // storeFilterContent returns items of contentType where every field in filters matches.
-// Matching is done by string-converting stored values, which covers numbers, booleans and strings.
+// Matching is done by string-converting stored values, which cover numbers, booleans, and strings.
 func storeFilterContent(contentType string, filters map[string]string) ([]ContentItem, bool) {
 	mu.RLock()
 	defer mu.RUnlock()

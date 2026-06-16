@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]string{
 		"status":    "ok",
-		"version":   "Go 1.26 stdlib POC",
+		"version":   "Go 1.26 stdlib POC with Field Types",
 		"timestamp": time.Now().UTC().String(),
 	})
 }
@@ -31,8 +32,10 @@ func createContentTypeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 		return
 	}
-	if ct.Name == "" {
-		http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
+
+	// validate request data
+	if ct.Name == "" || len(ct.Fields) == 0 {
+		http.Error(w, `{"error":"name and fields are required"}`, http.StatusBadRequest)
 		return
 	}
 	storeCreateContentType(ct)
@@ -77,7 +80,7 @@ func listContentHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, items)
 }
 
-// Get single item (GET /api/content/{contentType}/{id})
+// Get a single item (GET /api/content/{contentType}/{id})
 func getSingleContentHandler(w http.ResponseWriter, r *http.Request) {
 	contentType := r.PathValue("contentType")
 	idStr := r.PathValue("id")
@@ -116,7 +119,13 @@ func createContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, http.StatusCreated, storeCreateContent(contentType, item))
+	content, err := storeCreateContent(contentType, item)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to create content: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	jsonResponse(w, http.StatusCreated, content)
 }
 
 func updateContentHandler(w http.ResponseWriter, r *http.Request) {
@@ -135,8 +144,8 @@ func updateContentHandler(w http.ResponseWriter, r *http.Request) {
 	var update ContentItem
 	json.Unmarshal(body, &update)
 
-	item, found := storeUpdateContent(contentType, idStr, update)
-	if !found {
+	item, err := storeUpdateContent(contentType, idStr, update)
+	if err != nil {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
 	}

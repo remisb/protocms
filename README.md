@@ -73,3 +73,21 @@ jcurl http://localhost:8080/api/stats
 
 
 ```
+
+
+### Samples with FieldTypes
+
+```shell
+curl -X POST http://localhost:8080/api/content-types \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "post",
+    "fields": {
+      "title": {"type": "text", "required": true},
+      "body": {"type": "richText"},
+      "published": {"type": "boolean", "default": false},
+      "author": {"type": "reference", "refType": "author"},
+      "tags": {"type": "select", "options": ["tech", "news", "tutorial"]}
+    }
+  }'
+```

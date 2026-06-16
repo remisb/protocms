@@ -4,57 +4,57 @@
     "brand": {
       "name": "brand",
       "fields": {
-        "country": "string",
-        "description": "text",
-        "name": "string",
-        "slug": "string"
+        "name":        {"type": "text", "required": true},
+        "slug":        {"type": "slug"},
+        "country":     {"type": "text"},
+        "description": {"type": "textarea"}
       }
     },
     "category": {
       "name": "category",
       "fields": {
-        "description": "text",
-        "name": "string",
-        "slug": "string"
+        "name":        {"type": "text", "required": true},
+        "slug":        {"type": "slug"},
+        "description": {"type": "textarea"}
       }
     },
     "tire": {
       "name": "tire",
       "fields": {
-        "brand_id": "integer",
-        "category_id": "integer",
-        "description": "text",
-        "fuel_efficiency": "string",
-        "in_stock": "boolean",
-        "load_index": "integer",
-        "name": "string",
-        "noise_db": "integer",
-        "price": "number",
-        "run_flat": "boolean",
-        "season": "string",
-        "size": "string",
-        "speed_rating": "string",
-        "wet_grip": "string"
+        "name":            {"type": "text", "required": true},
+        "description":     {"type": "textarea"},
+        "price":           {"type": "number", "required": true},
+        "brand_id":        {"type": "number"},
+        "category_id":     {"type": "number"},
+        "size":            {"type": "text"},
+        "season":          {"type": "text"},
+        "fuel_efficiency": {"type": "text"},
+        "wet_grip":        {"type": "text"},
+        "noise_db":        {"type": "number"},
+        "load_index":      {"type": "number"},
+        "speed_rating":    {"type": "text"},
+        "run_flat":        {"type": "boolean"},
+        "in_stock":        {"type": "boolean"}
       }
     },
     "tier": {
       "name": "tier",
       "fields": {
-        "discount_percent": "integer",
-        "min_spend": "number",
-        "name": "string",
-        "perks": "string"
+        "name":             {"type": "text", "required": true},
+        "min_spend":        {"type": "number"},
+        "discount_percent": {"type": "number"},
+        "perks":            {"type": "text"}
       }
     }
   },
   "content": {
     "brand": [
-      { "id": 1, "name": "Michelin",    "slug": "michelin",    "country": "France",  "description": "World's largest tyre manufacturer, known for longevity and fuel efficiency." },
-      { "id": 2, "name": "Continental", "slug": "continental", "country": "Germany", "description": "Premium German tyre brand with outstanding wet and dry performance." },
-      { "id": 3, "name": "Bridgestone", "slug": "bridgestone", "country": "Japan",   "description": "Global OE supplier with strong performance and touring ranges." },
-      { "id": 4, "name": "Pirelli",     "slug": "pirelli",     "country": "Italy",   "description": "High-performance tyres, exclusive OE fitment on sports and luxury cars." },
-      { "id": 5, "name": "Goodyear",    "slug": "goodyear",    "country": "USA",     "description": "Broad range from budget touring to ultra-high performance." },
-      { "id": 6, "name": "Hankook",     "slug": "hankook",     "country": "South Korea", "description": "Value-for-money tyres with improving performance credentials." }
+      { "id": 1, "name": "Michelin",    "slug": "michelin",    "country": "France",       "description": "World's largest tyre manufacturer, known for longevity and fuel efficiency." },
+      { "id": 2, "name": "Continental", "slug": "continental", "country": "Germany",      "description": "Premium German tyre brand with outstanding wet and dry performance." },
+      { "id": 3, "name": "Bridgestone", "slug": "bridgestone", "country": "Japan",        "description": "Global OE supplier with strong performance and touring ranges." },
+      { "id": 4, "name": "Pirelli",     "slug": "pirelli",     "country": "Italy",        "description": "High-performance tyres, exclusive OE fitment on sports and luxury cars." },
+      { "id": 5, "name": "Goodyear",    "slug": "goodyear",    "country": "USA",          "description": "Broad range from budget touring to ultra-high performance." },
+      { "id": 6, "name": "Hankook",     "slug": "hankook",     "country": "South Korea",  "description": "Value-for-money tyres with improving performance credentials." }
     ],
     "category": [
       { "id": 7,  "name": "Summer",      "slug": "summer",      "description": "Optimised for dry and wet roads in warm conditions above 7°C." },
@@ -88,10 +88,10 @@
       { "id": 33, "name": "Hankook Winter i*cept RS3",       "description": "Affordable winter tyre with strong snow braking and good ice grip.",                         "price": 79.99,  "brand_id": 6, "category_id": 8,  "size": "195/65R15",  "season": "winter",     "fuel_efficiency": "D", "wet_grip": "C", "noise_db": 70, "load_index": 91, "speed_rating": "T", "run_flat": false, "in_stock": true  }
     ],
     "tier": [
-      { "id": 84, "name": "Basic",      "min_spend": 0,    "discount_percent": 0,  "perks": "Free valve stems,Free tyre disposal" },
-      { "id": 85, "name": "Silver",     "min_spend": 200,  "discount_percent": 5,  "perks": "Free valve stems,Free tyre disposal,Free tyre rotation check" },
-      { "id": 86, "name": "Gold",       "min_spend": 500,  "discount_percent": 10, "perks": "Free valve stems,Free tyre disposal,Free tyre rotation,Free wheel balancing" },
-      { "id": 87, "name": "Platinum",   "min_spend": 1000, "discount_percent": 15, "perks": "Free valve stems,Free tyre disposal,Free tyre rotation,Free wheel balancing,Free TPMS reset,Priority fitting slot" }
+      { "id": 84, "name": "Basic",    "min_spend": 0,    "discount_percent": 0,  "perks": "Free valve stems,Free tyre disposal" },
+      { "id": 85, "name": "Silver",   "min_spend": 200,  "discount_percent": 5,  "perks": "Free valve stems,Free tyre disposal,Free tyre rotation check" },
+      { "id": 86, "name": "Gold",     "min_spend": 500,  "discount_percent": 10, "perks": "Free valve stems,Free tyre disposal,Free tyre rotation,Free wheel balancing" },
+      { "id": 87, "name": "Platinum", "min_spend": 1000, "discount_percent": 15, "perks": "Free valve stems,Free tyre disposal,Free tyre rotation,Free wheel balancing,Free TPMS reset,Priority fitting slot" }
     ]
   }
 }

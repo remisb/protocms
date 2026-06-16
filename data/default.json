@@ -1,1 +1,29 @@
-{"next_id":3,"schemas":{"post":{"name":"post","fields":{"body":"text","title":"string"}}},"content":{"post":[{"body":"World","id":1,"title":"Hello"},{"body":"Post 2 body !","id":2,"title":"Post 2"}]}}
+{
+  "next_id": 5,
+  "schemas": {
+    "ProductCategory": {
+      "name": "ProductCategory",
+      "fields": {
+        "title": {"type": "text", "required": true},
+        "body": {"type": "text"}
+      }
+    },
+    "post": {
+      "name": "post",
+      "fields": {
+        "title": {"type": "text", "required": true},
+        "body": {"type": "textarea"}
+      }
+    }
+  },
+  "content": {
+    "ProductCategory": [
+      {"id": 3, "title": "Headphones title", "body": "Headphones body"},
+      {"id": 4, "title": "Speakers title",   "body": "Speakers body"}
+    ],
+    "post": [
+      {"id": 1, "title": "Hello",  "body": "World"},
+      {"id": 2, "title": "Post 2", "body": "Post 2 body !"}
+    ]
+  }
+}

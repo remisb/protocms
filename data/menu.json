@@ -4,28 +4,28 @@
     "category": {
       "name": "category",
       "fields": {
-        "description": "text",
-        "name": "string"
+        "name":        {"type": "text", "required": true},
+        "description": {"type": "textarea"}
       }
     },
     "dish": {
       "name": "dish",
       "fields": {
-        "allergens": "string",
-        "category_id": "integer",
-        "description": "text",
-        "name": "string",
-        "price": "number",
-        "vegetarian": "boolean"
+        "name":        {"type": "text", "required": true},
+        "description": {"type": "textarea"},
+        "price":       {"type": "number", "required": true},
+        "category_id": {"type": "number"},
+        "vegetarian":  {"type": "boolean"},
+        "allergens":   {"type": "text"}
       }
     },
     "drink": {
       "name": "drink",
       "fields": {
-        "category": "string",
-        "name": "string",
-        "price": "number",
-        "size_ml": "integer"
+        "name":     {"type": "text", "required": true},
+        "category": {"type": "text"},
+        "price":    {"type": "number", "required": true},
+        "size_ml":  {"type": "number"}
       }
     }
   },
@@ -59,12 +59,12 @@
       { "id": 24, "name": "Chocolate Fondant",        "description": "Warm dark chocolate fondant with vanilla gelato.",            "price": 8.00,  "category_id": 5, "vegetarian": true,  "allergens": "gluten,egg,dairy" }
     ],
     "drink": [
-      { "id": 25, "name": "Still Water",          "category": "soft",    "price": 2.50, "size_ml": 500  },
-      { "id": 26, "name": "Sparkling Water",      "category": "soft",    "price": 2.50, "size_ml": 500  },
-      { "id": 27, "name": "Fresh Orange Juice",   "category": "soft",    "price": 3.50, "size_ml": 250  },
-      { "id": 28, "name": "House Red Wine",       "category": "wine",    "price": 6.00, "size_ml": 175  },
-      { "id": 29, "name": "House White Wine",     "category": "wine",    "price": 6.00, "size_ml": 175  },
-      { "id": 30, "name": "Peroni Nastro Azzurro","category": "beer",    "price": 4.50, "size_ml": 330  }
+      { "id": 25, "name": "Still Water",           "category": "soft", "price": 2.50, "size_ml": 500 },
+      { "id": 26, "name": "Sparkling Water",       "category": "soft", "price": 2.50, "size_ml": 500 },
+      { "id": 27, "name": "Fresh Orange Juice",    "category": "soft", "price": 3.50, "size_ml": 250 },
+      { "id": 28, "name": "House Red Wine",        "category": "wine", "price": 6.00, "size_ml": 175 },
+      { "id": 29, "name": "House White Wine",      "category": "wine", "price": 6.00, "size_ml": 175 },
+      { "id": 30, "name": "Peroni Nastro Azzurro", "category": "beer", "price": 4.50, "size_ml": 330 }
     ]
   }
 }
