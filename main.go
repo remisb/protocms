@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/remisb/muxstack/middleware"
+	"github.com/remisb/protocms/store"
 )
 
 func main() {
@@ -17,8 +18,8 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	storeInit(*dataset)
-	storeLoad(*dataset)
+	store.Init(*dataset)
+	store.Load(*dataset)
 
 	mux := http.NewServeMux()
 

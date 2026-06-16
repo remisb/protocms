@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/remisb/protocms/store"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -18,16 +20,16 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResponse(w, http.StatusOK, storeGetStats())
+	jsonResponse(w, http.StatusOK, store.GetStats())
 }
 
 // Content Types
 func getContentTypesHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResponse(w, http.StatusOK, storeGetAllContentTypes())
+	jsonResponse(w, http.StatusOK, store.GetAllContentTypes())
 }
 
 func createContentTypeHandler(w http.ResponseWriter, r *http.Request) {
-	var ct ContentType
+	var ct store.ContentType
 	if err := json.NewDecoder(r.Body).Decode(&ct); err != nil {
 		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 		return
@@ -38,7 +40,7 @@ func createContentTypeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"name and fields are required"}`, http.StatusBadRequest)
 		return
 	}
-	storeCreateContentType(ct)
+	store.CreateContentType(ct)
 	jsonResponse(w, http.StatusCreated, ct)
 }
 
@@ -59,22 +61,22 @@ func listContentHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var items []ContentItem
+	var items []store.ContentItem
 	var exists bool
 	if len(filters) > 0 {
-		items, exists = storeFilterContent(contentType, filters)
+		items, exists = store.FilterContent(contentType, filters)
 	} else {
-		items, exists = storeListContent(contentType)
+		items, exists = store.ListContent(contentType)
 	}
 
 	if !exists {
-		jsonResponse(w, http.StatusOK, []ContentItem{})
+		jsonResponse(w, http.StatusOK, []store.ContentItem{})
 		return
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit < len(items) {
-			items = append([]ContentItem{}, items[:limit]...)
+			items = append([]store.ContentItem{}, items[:limit]...)
 		}
 	}
 	jsonResponse(w, http.StatusOK, items)
@@ -89,7 +91,7 @@ func getSingleContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, found := storeGetSingleContent(contentType, idStr)
+	item, found := store.GetSingleContent(contentType, idStr)
 	if !found {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
@@ -103,7 +105,7 @@ func createContentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"content type required"}`, http.StatusBadRequest)
 		return
 	}
-	if !storeSchemaExists(contentType) {
+	if !store.SchemaExists(contentType) {
 		http.Error(w, `{"error":"unknown content type. Register first via /content-types"}`, http.StatusBadRequest)
 		return
 	}
@@ -113,13 +115,13 @@ func createContentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
 		return
 	}
-	var item ContentItem
+	var item store.ContentItem
 	if err := json.Unmarshal(body, &item); err != nil {
 		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 		return
 	}
 
-	content, err := storeCreateContent(contentType, item)
+	content, err := store.CreateContent(contentType, item)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to create content: %v"}`, err), http.StatusInternalServerError)
 		return
@@ -141,10 +143,10 @@ func updateContentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
 		return
 	}
-	var update ContentItem
+	var update store.ContentItem
 	json.Unmarshal(body, &update)
 
-	item, err := storeUpdateContent(contentType, idStr, update)
+	item, err := store.UpdateContent(contentType, idStr, update)
 	if err != nil {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
@@ -160,7 +162,7 @@ func deleteContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !storeDeleteContent(contentType, idStr) {
+	if !store.DeleteContent(contentType, idStr) {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
 	}

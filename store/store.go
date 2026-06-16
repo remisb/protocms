@@ -1,4 +1,4 @@
-package main
+package store
 
 import (
 	"encoding/json"
@@ -69,7 +69,7 @@ var (
 
 // storeInit resolves the data file path for the given dataset name
 // and ensures the data directory exists.
-func storeInit(dataset string) {
+func Init(dataset string) {
 	datasetName = dataset
 	dataFile = dataDir + "/" + datasetName + ".json"
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
@@ -153,7 +153,7 @@ type DatasetStats struct {
 	ItemsPerType map[string]int `json:"items_per_type"`
 }
 
-func storeGetStats() DatasetStats {
+func GetStats() DatasetStats {
 	mu.RLock()
 	defer mu.RUnlock()
 	itemsPerType := make(map[string]int, len(schemas))
@@ -171,9 +171,9 @@ func storeGetStats() DatasetStats {
 	}
 }
 
-// storeLoad reads persisted data from the disk into the in-memory store.
+// Load reads persisted data from the disk into the in-memory store.
 // Must be called once before the HTTP server starts.
-func storeLoad(dataset string) {
+func Load(dataset string) {
 	f, err := os.Open(dataFile)
 	if os.IsNotExist(err) && dataFile != dataDir+"/"+datasetName+".json" {
 		return // first run, nothing to load
@@ -230,7 +230,7 @@ func persistLocked() {
 	}
 }
 
-func storeGetAllContentTypes() []ContentType {
+func GetAllContentTypes() []ContentType {
 	mu.RLock()
 	defer mu.RUnlock()
 	types := make([]ContentType, 0, len(schemas))
@@ -247,7 +247,7 @@ func storeGetSchema(contentType string) (ContentType, bool) {
 	return schema, ok
 }
 
-func storeCreateContentType(ct ContentType) {
+func CreateContentType(ct ContentType) {
 	mu.Lock()
 	defer mu.Unlock()
 	schemas[ct.Name] = ct
@@ -257,21 +257,21 @@ func storeCreateContentType(ct ContentType) {
 	persistLocked()
 }
 
-func storeSchemaExists(contentType string) bool {
+func SchemaExists(contentType string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
 	_, ok := schemas[contentType]
 	return ok
 }
 
-func storeListContent(contentType string) ([]ContentItem, bool) {
+func ListContent(contentType string) ([]ContentItem, bool) {
 	mu.RLock()
 	defer mu.RUnlock()
 	items, exists := contentStore[contentType]
 	return items, exists
 }
 
-func storeGetSingleContent(contentType, idStr string) (ContentItem, bool) {
+func GetSingleContent(contentType, idStr string) (ContentItem, bool) {
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, item := range contentStore[contentType] {
@@ -282,7 +282,7 @@ func storeGetSingleContent(contentType, idStr string) (ContentItem, bool) {
 	return nil, false
 }
 
-func storeGetContentType(contentType string) (ContentType, error) {
+func GetContentType(contentType string) (ContentType, error) {
 	mu.RLock()
 	defer mu.RUnlock()
 	cType, ok := schemas[contentType]
@@ -292,8 +292,8 @@ func storeGetContentType(contentType string) (ContentType, error) {
 	return cType, nil
 }
 
-func storeCreateContent(contentType string, item ContentItem) (ContentItem, error) {
-	schema, err := storeGetContentType(contentType)
+func CreateContent(contentType string, item ContentItem) (ContentItem, error) {
+	schema, err := GetContentType(contentType)
 	if err != nil {
 		return ContentItem{}, err
 	}
@@ -314,8 +314,8 @@ func storeCreateContent(contentType string, item ContentItem) (ContentItem, erro
 	return item, nil
 }
 
-func storeUpdateContent(contentType, idStr string, update ContentItem) (ContentItem, error) {
-	_, err := storeGetContentType(contentType)
+func UpdateContent(contentType, idStr string, update ContentItem) (ContentItem, error) {
+	_, err := GetContentType(contentType)
 	if err != nil {
 		return ContentItem{}, err
 	}
@@ -338,7 +338,7 @@ func storeUpdateContent(contentType, idStr string, update ContentItem) (ContentI
 	return ContentItem{}, fmt.Errorf("content item with id %s not found", idStr)
 }
 
-func storeDeleteContent(contentType, idStr string) bool {
+func DeleteContent(contentType, idStr string) bool {
 	mu.Lock()
 	defer mu.Unlock()
 	items := contentStore[contentType]
@@ -354,7 +354,7 @@ func storeDeleteContent(contentType, idStr string) bool {
 
 // storeFilterContent returns items of contentType where every field in filters matches.
 // Matching is done by string-converting stored values, which cover numbers, booleans, and strings.
-func storeFilterContent(contentType string, filters map[string]string) ([]ContentItem, bool) {
+func FilterContent(contentType string, filters map[string]string) ([]ContentItem, bool) {
 	mu.RLock()
 	defer mu.RUnlock()
 	items, exists := contentStore[contentType]
