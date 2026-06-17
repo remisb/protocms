@@ -36,6 +36,10 @@ func main() {
 	mux.HandleFunc("PUT /api/content/{contentType}/{id}", updateContentHandler)
 	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", deleteContentHandler)
 
+	// Uploads
+	mux.HandleFunc("POST /api/uploads", uploadHandler)
+	mux.HandleFunc("GET /api/uploads/{name}", serveUploadHandler)
+
 	handler := middleware.Chain(
 		mux,
 		middleware.CORS(middleware.DefaultCORSConfig()),
@@ -75,6 +79,8 @@ func printRoutes() {
 		"POST   /api/content/{contentType}",
 		"PUT    /api/content/{contentType}/{id}",
 		"DELETE /api/content/{contentType}/{id}",
+		"POST   /api/uploads",
+		"GET    /api/uploads/{name}",
 	}
 	for _, r := range routes {
 		slog.Info("route registered", "route", r)
