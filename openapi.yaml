@@ -77,6 +77,9 @@ paths:
       summary: Create a content type
       operationId: createContentType
       tags: [Content Types]
+      description: Requires a bearer token with the `admin` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -100,6 +103,69 @@ paths:
                 $ref: '#/components/schemas/ContentType'
         '400':
           description: Invalid request body or missing name/fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/login:
+    post:
+      summary: Authenticate and obtain a JWT
+      operationId: login
+      tags: [Auth]
+      description: |
+        Exchanges a username/password (configured via `PROTOCMS_USERS`) for an
+        HS256 JWT. Disabled (503) when `PROTOCMS_JWT_SECRET` is not set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+            example:
+              username: jane
+              password: pw
+      responses:
+        '200':
+          description: Authentication succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: HS256 JWT to send as `Authorization: Bearer <token>`
+                  role:
+                    type: string
+                    enum: [admin, editor]
+                  expires_in:
+                    type: integer
+                    description: Token lifetime in seconds
+        '400':
+          description: Invalid JSON body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Login disabled (no JWT secret configured)
           content:
             application/json:
               schema:
@@ -150,6 +216,9 @@ paths:
       summary: Create a content item
       operationId: createContent
       tags: [Content]
+      description: Requires a bearer token with the `admin` or `editor` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -172,6 +241,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/content/{contentType}/{id}:
     parameters:
@@ -206,6 +279,9 @@ paths:
       summary: Update a content item
       operationId: updateContent
       tags: [Content]
+      description: Requires a bearer token with the `admin` or `editor` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -228,6 +304,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           description: Item not found
           content:
@@ -239,6 +319,9 @@ paths:
       summary: Delete a content item
       operationId: deleteContent
       tags: [Content]
+      description: Requires a bearer token with the `admin` or `editor` role.
+      security:
+        - bearerAuth: []
       responses:
         '204':
           description: Item deleted successfully (no body)
@@ -248,6 +331,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           description: Item not found
           content:
@@ -256,6 +343,29 @@ paths:
                 $ref: '#/components/schemas/Error'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        A bearer token that is either a static API key (configured via
+        `PROTOCMS_API_KEYS`) or an HS256 JWT obtained from `POST /api/login`.
+        The token's role (`admin` or `editor`) governs which writes are allowed.
+
+  responses:
+    Unauthorized:
+      description: Missing, malformed, or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Authenticated, but the token's role lacks permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
   parameters:
     contentType:
       name: contentType

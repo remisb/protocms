@@ -21,23 +21,34 @@ func main() {
 	store.Init(*dataset)
 	store.Load(*dataset)
 
+	authCfg := loadAuthConfig()
+	authn := middleware.Authenticator(newVerifier(authCfg))
+	// protect wraps a write handler with authentication and a role check.
+	protect := func(h http.HandlerFunc, roles ...string) http.HandlerFunc {
+		return middleware.Chain(h, authn, middleware.Authorizer(roles...)).ServeHTTP
+	}
+
 	mux := http.NewServeMux()
 
 	// Modern routing with method + named wildcards (Go 1.22+)
+	// Reads are public; writes require a bearer token (API key or JWT).
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("GET /api/stats", statsHandler)
 	mux.HandleFunc("GET /api/content-types", getContentTypesHandler)
-	mux.HandleFunc("POST /api/content-types", createContentTypeHandler)
+	mux.HandleFunc("POST /api/content-types", protect(createContentTypeHandler, "admin"))
+
+	// Auth
+	mux.HandleFunc("POST /api/login", loginHandler(authCfg))
 
 	// Content routes with wildcards {contentType} and {id}
 	mux.HandleFunc("GET /api/content/{contentType}", listContentHandler)
 	mux.HandleFunc("GET /api/content/{contentType}/{id}", getSingleContentHandler)
-	mux.HandleFunc("POST /api/content/{contentType}", createContentHandler)
-	mux.HandleFunc("PUT /api/content/{contentType}/{id}", updateContentHandler)
-	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", deleteContentHandler)
+	mux.HandleFunc("POST /api/content/{contentType}", protect(createContentHandler, "admin", "editor"))
+	mux.HandleFunc("PUT /api/content/{contentType}/{id}", protect(updateContentHandler, "admin", "editor"))
+	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", protect(deleteContentHandler, "admin", "editor"))
 
 	// Uploads
-	mux.HandleFunc("POST /api/uploads", uploadHandler)
+	mux.HandleFunc("POST /api/uploads", protect(uploadHandler, "admin", "editor"))
 	mux.HandleFunc("GET /api/uploads/{name}", serveUploadHandler)
 
 	handler := middleware.Chain(
@@ -73,13 +84,14 @@ func printRoutes() {
 		"GET    /api/health",
 		"GET    /api/stats",
 		"GET    /api/content-types",
-		"POST   /api/content-types",
+		"POST   /api/content-types              (auth: admin)",
+		"POST   /api/login",
 		"GET    /api/content/{contentType}",
 		"GET    /api/content/{contentType}/{id}",
-		"POST   /api/content/{contentType}",
-		"PUT    /api/content/{contentType}/{id}",
-		"DELETE /api/content/{contentType}/{id}",
-		"POST   /api/uploads",
+		"POST   /api/content/{contentType}       (auth: admin|editor)",
+		"PUT    /api/content/{contentType}/{id}  (auth: admin|editor)",
+		"DELETE /api/content/{contentType}/{id}  (auth: admin|editor)",
+		"POST   /api/uploads                     (auth: admin|editor)",
 		"GET    /api/uploads/{name}",
 	}
 	for _, r := range routes {

@@ -41,6 +41,8 @@ Two packages: `main` (HTTP layer) and `store` (state + persistence). They are ti
 
 **Filtering (`listContentHandler` + `FilterContent`)** converts any non-reserved query param into an equality filter using `fmt.Sprintf("%v", val)`. The only reserved param is `limit`. Add reserved keys in `handlers.go` if you introduce sort/offset/etc.
 
+**Auth (`auth.go`)** All reads are public; all writes require a bearer token. Tokens are verified by `newVerifier` against either a static API key or an HS256 JWT, and the muxstack `Authenticator`/`Authorizer` middleware (already in the `muxstack/middleware` package) enforce role. Roles are the hard-coded set `{admin, editor}`: `admin` can do everything; `editor` can write content + uploads but not create content types. Enforcement is **per-route** via the `protect(handler, roles...)` helper in `main.go` (the global `middleware.Chain` can't be used because reads must stay open). Config comes from env vars, not the dataset: `PROTOCMS_API_KEYS` (`key:role,...`), `PROTOCMS_JWT_SECRET` (HMAC secret; empty disables JWT and `/api/login`), and `PROTOCMS_USERS` (`user:pass:role,...` for `/api/login`). JWT sign/verify is hand-rolled (stdlib `crypto/hmac`), no external library. Adding a new role means updating `validRoles` in `auth.go` and the relevant `protect(...)` call sites.
+
 ## Conventions
 
 - Errors to clients are written as raw JSON strings via `http.Error` (e.g. `` `{"error":"..."}` ``), not through `jsonResponse`. Keep that pattern when adding handlers — clients parse it as JSON.
