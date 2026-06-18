@@ -171,6 +171,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/me:
+    get:
+      summary: Get the current token's identity and role
+      operationId: getMe
+      tags: [Auth]
+      description: |
+        Returns the subject and roles of the presented bearer token.
+        Requires any valid token (`admin` or `editor`).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The authenticated principal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subject:
+                    type: string
+                    description: Token subject (`apikey` for static keys, the username for JWTs)
+                  roles:
+                    type: array
+                    items:
+                      type: string
+                      enum: [admin, editor]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /api/content/{contentType}:
     parameters:
       - $ref: '#/components/parameters/contentType'

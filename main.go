@@ -39,6 +39,7 @@ func main() {
 
 	// Auth
 	mux.HandleFunc("POST /api/login", loginHandler(authCfg))
+	mux.HandleFunc("GET /api/me", protect(meHandler, "admin", "editor"))
 
 	// Content routes with wildcards {contentType} and {id}
 	mux.HandleFunc("GET /api/content/{contentType}", listContentHandler)
@@ -86,6 +87,7 @@ func printRoutes() {
 		"GET    /api/content-types",
 		"POST   /api/content-types              (auth: admin)",
 		"POST   /api/login",
+		"GET    /api/me                          (auth: admin|editor)",
 		"GET    /api/content/{contentType}",
 		"GET    /api/content/{contentType}/{id}",
 		"POST   /api/content/{contentType}       (auth: admin|editor)",

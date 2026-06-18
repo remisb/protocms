@@ -183,6 +183,20 @@ func hmacSHA256(secret []byte, data string) []byte {
 	return mac.Sum(nil)
 }
 
+// meHandler returns the identity and role of the current bearer token.
+// Registered behind the Authenticator middleware, so Claims are always present.
+func meHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"subject": claims.Subject,
+		"roles":   claims.Roles,
+	})
+}
+
 // loginHandler authenticates a username/password against PROTOCMS_USERS and
 // issues a JWT. Registered as POST /api/login (public).
 func loginHandler(cfg authConfig) http.HandlerFunc {
