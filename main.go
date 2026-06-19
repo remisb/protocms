@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/remisb/muxstack/middleware"
+	"github.com/remisb/protocms/internal/auth"
 	"github.com/remisb/protocms/store"
 )
 
@@ -21,12 +22,8 @@ func main() {
 	store.Init(*dataset)
 	store.Load(*dataset)
 
-	authCfg := loadAuthConfig()
-	authn := middleware.Authenticator(newVerifier(authCfg))
-	// protect wraps a write handler with authentication and a role check.
-	protect := func(h http.HandlerFunc, roles ...string) http.HandlerFunc {
-		return middleware.Chain(h, authn, middleware.Authorizer(roles...)).ServeHTTP
-	}
+	authCfg := auth.LoadConfig()
+	authn := middleware.Authenticator(auth.NewVerifier(authCfg))
 
 	mux := http.NewServeMux()
 
@@ -35,21 +32,21 @@ func main() {
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("GET /api/stats", statsHandler)
 	mux.HandleFunc("GET /api/content-types", getContentTypesHandler)
-	mux.HandleFunc("POST /api/content-types", protect(createContentTypeHandler, "admin"))
+	mux.HandleFunc("POST /api/content-types", protectHandler(createContentTypeHandler, authn, "admin"))
 
 	// Auth
 	mux.HandleFunc("POST /api/login", loginHandler(authCfg))
-	mux.HandleFunc("GET /api/me", protect(meHandler, "admin", "editor"))
+	mux.HandleFunc("GET /api/me", protectHandler(meHandler, authn, "admin", "editor"))
 
 	// Content routes with wildcards {contentType} and {id}
 	mux.HandleFunc("GET /api/content/{contentType}", listContentHandler)
 	mux.HandleFunc("GET /api/content/{contentType}/{id}", getSingleContentHandler)
-	mux.HandleFunc("POST /api/content/{contentType}", protect(createContentHandler, "admin", "editor"))
-	mux.HandleFunc("PUT /api/content/{contentType}/{id}", protect(updateContentHandler, "admin", "editor"))
-	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", protect(deleteContentHandler, "admin", "editor"))
+	mux.HandleFunc("POST /api/content/{contentType}", protectHandler(createContentHandler, authn, "admin", "editor"))
+	mux.HandleFunc("PUT /api/content/{contentType}/{id}", protectHandler(updateContentHandler, authn, "admin", "editor"))
+	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", protectHandler(deleteContentHandler, authn, "admin", "editor"))
 
 	// Uploads
-	mux.HandleFunc("POST /api/uploads", protect(uploadHandler, "admin", "editor"))
+	mux.HandleFunc("POST /api/uploads", protectHandler(uploadHandler, authn, "admin", "editor"))
 	mux.HandleFunc("GET /api/uploads/{name}", serveUploadHandler)
 
 	handler := middleware.Chain(

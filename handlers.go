@@ -2,16 +2,19 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/remisb/muxstack/middleware"
+	"github.com/remisb/protocms/internal/auth"
 	"github.com/remisb/protocms/store"
 )
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]string{
 		"status":    "ok",
 		"version":   "Go 1.26 stdlib POC with Field Types",
@@ -19,12 +22,26 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func statsHandler(w http.ResponseWriter, r *http.Request) {
+func statsHandler(w http.ResponseWriter, _ *http.Request) {
 	jsonResponse(w, http.StatusOK, store.GetStats())
 }
 
+// meHandler returns the identity and role of the current bearer token.
+// Registered behind the Authenticator middleware, so Claims are always present.
+func meHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"subject": claims.Subject,
+		"roles":   claims.Roles,
+	})
+}
+
 // Content Types
-func getContentTypesHandler(w http.ResponseWriter, r *http.Request) {
+func getContentTypesHandler(w http.ResponseWriter, _ *http.Request) {
 	jsonResponse(w, http.StatusOK, store.GetAllContentTypes())
 }
 
@@ -167,6 +184,50 @@ func deleteContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, http.StatusNoContent, nil)
+}
+
+// loginHandler authenticates a username/password against PROTOCMS_USERS and
+// issues a JWT. Registered as POST /api/login (public).
+func loginHandler(cfg auth.Config) http.HandlerFunc {
+	type creds struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	type loginResponse struct {
+		Token     string `json:"token"`
+		Role      string `json:"role"`
+		ExpiresIn int    `json:"expires_in"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if cfg.IsJWTAuthDisabled() {
+			http.Error(w, `{"error":"login disabled"}`, http.StatusServiceUnavailable)
+			return
+		}
+
+		var credentials creds
+		if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+			http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+			return
+		}
+
+		user, err := cfg.GetUser(credentials.Username, credentials.Password)
+		if err != nil && errors.Is(err, auth.ErrInvalidCredentials) {
+			http.Error(w, `{"error":"invalid credentials"}`, http.StatusUnauthorized)
+			return
+		}
+
+		token, err := auth.SignJWT(cfg, credentials.Username, user, jwtTTL)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"failed to sign token: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		jsonResponse(w, http.StatusOK,
+			loginResponse{Token: token, Role: user.Role(), ExpiresIn: int(jwtTTL.Seconds())},
+		)
+	}
 }
 
 func jsonResponse(w http.ResponseWriter, status int, data any) {
