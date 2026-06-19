@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { Boxes, FileText, Layers } from "lucide-react";
+import { Boxes, FileText, Layers, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import type { DatasetStats } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export function AppLayout() {
+  const { user, role, logout } = useAuth();
   const [stats, setStats] = useState<DatasetStats | null>(null);
 
   useEffect(() => {
@@ -47,6 +50,21 @@ export function AppLayout() {
             ) : (
               <span className="text-xs">connecting…</span>
             )}
+            {user && (
+              <Badge variant="outline">
+                {user.subject}
+                {role ? ` · ${role}` : ""}
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              aria-label="Log out"
+            >
+              <LogOut />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
