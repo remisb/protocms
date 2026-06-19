@@ -2,18 +2,45 @@ import type {
   ContentItem,
   ContentType,
   DatasetStats,
+  LoginResponse,
+  Me,
 } from "./types";
 
 const BASE = "/api";
+const TOKEN_KEY = "protocms_token";
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string | null): void {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+function authHeaders(base?: HeadersInit): Headers {
+  const headers = new Headers(base);
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
+
+// Drop the session and notify the app when the server rejects our token.
+function handleUnauthorized(): void {
+  setToken(null);
+  window.dispatchEvent(new Event("protocms:unauthorized"));
+}
 
 async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(BASE + path, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const headers = authHeaders(init?.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const res = await fetch(BASE + path, { ...init, headers });
+  if (res.status === 401) handleUnauthorized();
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   const data = text ? safeParse(text) : null;
@@ -47,7 +74,9 @@ async function uploadFile(file: File | Blob, filename?: string): Promise<UploadR
   const res = await fetch(BASE + "/uploads", {
     method: "POST",
     body: form,
+    headers: authHeaders(),
   });
+  if (res.status === 401) handleUnauthorized();
   const text = await res.text();
   const data = text ? safeParse(text) : null;
   if (!res.ok) {
@@ -63,6 +92,14 @@ async function uploadFile(file: File | Blob, filename?: string): Promise<UploadR
 export const api = {
   getStats: () => request<DatasetStats>("/stats"),
   uploadFile,
+
+  login: (username: string, password: string) =>
+    request<LoginResponse>("/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+  me: () => request<Me>("/me"),
+  logout: () => setToken(null),
 
   listContentTypes: () => request<ContentType[]>("/content-types"),
   createContentType: (ct: ContentType) =>

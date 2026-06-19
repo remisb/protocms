@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import type { ContentType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateContentTypeDialog } from "@/components/create-content-type-dialog";
 
 export function DesignerPage() {
+  const { isAdmin } = useAuth();
   const [types, setTypes] = useState<ContentType[] | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ContentType | null>(null);
@@ -48,16 +50,18 @@ export function DesignerPage() {
             <RefreshCw className={loading ? "animate-spin" : ""} />
             Refresh
           </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            <Plus />
-            New content type
-          </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+              }}
+            >
+              <Plus />
+              New content type
+            </Button>
+          )}
         </div>
       </div>
 
@@ -65,6 +69,7 @@ export function DesignerPage() {
         <SkeletonGrid />
       ) : types.length === 0 ? (
         <EmptyState
+          canCreate={isAdmin}
           onCreate={() => {
             setEditing(null);
             setOpen(true);
@@ -76,6 +81,7 @@ export function DesignerPage() {
             <ContentTypeCard
               key={t.name}
               type={t}
+              canEdit={isAdmin}
               onEdit={() => {
                 setEditing(t);
                 setOpen(true);
@@ -101,9 +107,11 @@ export function DesignerPage() {
 
 function ContentTypeCard({
   type,
+  canEdit,
   onEdit,
 }: {
   type: ContentType;
+  canEdit: boolean;
   onEdit: () => void;
 }) {
   const fields = Object.entries(type.fields ?? {});
@@ -116,14 +124,16 @@ function ContentTypeCard({
             {fields.length} {fields.length === 1 ? "field" : "fields"}
           </CardDescription>
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onEdit}
-          aria-label="Edit content type"
-        >
-          <Pencil />
-        </Button>
+        {canEdit && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onEdit}
+            aria-label="Edit content type"
+          >
+            <Pencil />
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {fields.length === 0 ? (
@@ -155,19 +165,28 @@ function ContentTypeCard({
   );
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function EmptyState({
+  canCreate,
+  onCreate,
+}: {
+  canCreate: boolean;
+  onCreate: () => void;
+}) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
         <h3 className="text-lg font-medium">No content types yet</h3>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Define a content type to start authoring items. You can add fields
-          like text, number, references, and more.
+          {canCreate
+            ? "Define a content type to start authoring items. You can add fields like text, number, references, and more."
+            : "No content types have been defined yet. Ask an admin to create one before authoring items."}
         </p>
-        <Button onClick={onCreate}>
-          <Plus />
-          Create the first one
-        </Button>
+        {canCreate && (
+          <Button onClick={onCreate}>
+            <Plus />
+            Create the first one
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

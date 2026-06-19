@@ -37,3 +37,14 @@ export interface DatasetStats {
   total_items: number;
   items_per_type: Record<string, number>;
 }
+
+export interface LoginResponse {
+  token: string;
+  role: string;
+  expires_in: number;
+}
+
+export interface Me {
+  subject: string;
+  roles: string[];
+}
