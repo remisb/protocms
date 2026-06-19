@@ -1,16 +1,24 @@
-import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { Boxes, FileText, Layers, LogOut } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Boxes, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { DatasetStats } from "@/lib/types";
+import type { ContentType, DatasetStats } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { EditorSidebar } from "@/components/editor-sidebar";
 
 export function AppLayout() {
-  const { user, role, logout } = useAuth();
+  const { user, role, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [stats, setStats] = useState<DatasetStats | null>(null);
+  const [types, setTypes] = useState<ContentType[] | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -18,35 +26,46 @@ export function AppLayout() {
       (s) => alive && setStats(s),
       () => {},
     );
+    api.listContentTypes().then(
+      (list) =>
+        alive && setTypes(list.sort((a, b) => a.name.localeCompare(b.name))),
+      () => {},
+    );
     return () => {
       alive = false;
     };
   }, []);
 
+  // The active content type is the `/editor/:contentType` URL segment.
+  const activeType = useMemo(() => {
+    const m = location.pathname.match(/^\/editor\/([^/]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }, [location.pathname]);
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-6">
+    <SidebarProvider>
+      <EditorSidebar
+        types={types ?? []}
+        active={activeType}
+        counts={stats?.items_per_type}
+        dataset={stats?.dataset}
+        subject={user?.subject}
+        role={role}
+        isAdmin={isAdmin}
+        onSelect={(n) => navigate(`/editor/${n}`)}
+      />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-4 border-b px-6">
+          <SidebarTrigger />
           <div className="flex items-center gap-2 font-semibold">
             <Boxes className="size-5" />
             <span>ProtoCMS</span>
           </div>
-          <nav className="flex items-center gap-1">
-            <NavTab to="/designer" icon={<Layers className="size-4" />}>
-              Designer
-            </NavTab>
-            <NavTab to="/editor" icon={<FileText className="size-4" />}>
-              Editor
-            </NavTab>
-          </nav>
           <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
             {stats ? (
-              <>
-                <Badge variant="outline">dataset: {stats.dataset}</Badge>
-                <Badge variant="secondary">
-                  {stats.content_types} types · {stats.total_items} items
-                </Badge>
-              </>
+              <Badge variant="secondary">
+                {stats.content_types} types · {stats.total_items} items
+              </Badge>
             ) : (
               <span className="text-xs">connecting…</span>
             )}
@@ -66,38 +85,11 @@ export function AppLayout() {
               Logout
             </Button>
           </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <Outlet />
-      </main>
-    </div>
-  );
-}
-
-function NavTab({
-  to,
-  icon,
-  children,
-}: {
-  to: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-          isActive
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-        )
-      }
-    >
-      {icon}
-      {children}
-    </NavLink>
+        </header>
+        <main className="px-6 py-8">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

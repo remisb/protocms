@@ -13,13 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -88,52 +81,37 @@ export function EditorPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">
-            Content type
-          </label>
-          <Select
-            value={contentType ?? ""}
-            onValueChange={(v) => navigate(`/editor/${v}`)}
-          >
-            <SelectTrigger className="w-[260px]">
-              <SelectValue placeholder="Choose a type…" />
-            </SelectTrigger>
-            <SelectContent>
-              {types?.map((t) => (
-                <SelectItem key={t.name} value={t.name}>
-                  {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {activeType && (
+          <h1 className="font-mono text-lg font-semibold">
+            {activeType.name}
+          </h1>
+        )}
         <div className="ml-auto flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadItems}
-            disabled={!contentType || loading}
-          >
-            <RefreshCw className={loading ? "animate-spin" : ""} />
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            disabled={!activeType}
-            onClick={() => {
-              setEditing(null);
-              setDialogOpen(true);
-            }}
-          >
-            <Plus />
-            New item
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadItems}
+              disabled={!contentType || loading}
+            >
+              <RefreshCw className={loading ? "animate-spin" : ""} />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              disabled={!activeType}
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus />
+              New item
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {!contentType ? (
+        {!contentType ? (
         <EmptyHint />
       ) : !activeType ? (
         <Card>
@@ -201,7 +179,7 @@ function EmptyHint() {
       <CardHeader>
         <CardTitle>Pick a content type to get started</CardTitle>
         <CardDescription>
-          Select one from the dropdown above to list and edit its items.
+          Select one from the sidebar to list and edit its items.
         </CardDescription>
       </CardHeader>
     </Card>
