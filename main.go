@@ -13,11 +13,29 @@ import (
 )
 
 func main() {
-	dataset := flag.String("dataset", "default", "name of the dataset to load (stored as data/<name>.json)")
+	dataset := flag.String("dataset", "default", "name of the dataset to load (stored as data/<name>/ or legacy data/<name>.json)")
+	migrate := flag.Bool("migrate", false, "convert the -dataset dataset from the legacy flat file to the new folder format, then exit")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
+
+	if *migrate {
+		res, err := store.MigrateDataset(*dataset)
+		if err != nil {
+			slog.Error("migration failed", "dataset", *dataset, "err", err)
+			os.Exit(1)
+		}
+		slog.Info("migration complete",
+			"dataset", res.Name,
+			"from", res.OldFile,
+			"to", res.NewDir,
+			"types", res.Types,
+			"items", res.Items)
+		fmt.Printf("migrated %q: %s -> %s/ (%d types, %d items); old file kept\n",
+			res.Name, res.OldFile, res.NewDir, res.Types, res.Items)
+		return
+	}
 
 	store.Init(*dataset)
 	store.Load(*dataset)

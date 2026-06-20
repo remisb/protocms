@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
 )
+
+// dataFileName is the schemas/content file inside a v2 dataset folder.
+const dataFileName = "data.json"
 
 // FieldType represents supported field types
 type FieldType string
@@ -65,21 +69,43 @@ type DatasetStats struct {
 // Dataset is a single, independently-loadable content store. Its own
 // RWMutex guards the schemas/content/nextID state, so multiple datasets
 // can be served concurrently without contending on a global lock.
+//
+// A dataset is stored in one of two on-disk layouts (see format):
+//
+//	v2 (current): a folder data/<name>/ holding data.json + meta.json
+//	v1 (legacy):  a flat file data/<name>.json (read + written in place,
+//	              with no metadata, until migrated)
 type Dataset struct {
-	mu       sync.RWMutex
-	name     string
-	dataFile string // resolved path, e.g. data/<name>.json
-	schemas  map[string]ContentType
-	content  map[string][]ContentItem
-	nextID   int
+	mu      sync.RWMutex
+	name    string
+	format  int      // formatVersionCurrent (folder) or formatVersionLegacy (flat file)
+	dir     string   // data/<name>      (v2)
+	flatPath string  // data/<name>.json (v1)
+	meta    Metadata // populated for v2; zero-ish for v1
+	schemas map[string]ContentType
+	content map[string][]ContentItem
+	nextID  int
 }
 
-// newDataset returns an empty dataset bound to the given name and on-disk
-// file. It does not read from disk; call load for that.
-func newDataset(name, dataFile string) *Dataset {
+// newFolderDataset returns an empty dataset backed by the v2 folder layout.
+func newFolderDataset(name, dir string, meta Metadata) *Dataset {
+	return &Dataset{
+		name:    name,
+		format:  formatVersionCurrent,
+		dir:     dir,
+		meta:    meta,
+		schemas: make(map[string]ContentType),
+		content: make(map[string][]ContentItem),
+		nextID:  1,
+	}
+}
+
+// newLegacyDataset returns an empty dataset backed by the v1 flat file.
+func newLegacyDataset(name, flatPath string) *Dataset {
 	return &Dataset{
 		name:     name,
-		dataFile: dataFile,
+		format:   formatVersionLegacy,
+		flatPath: flatPath,
 		schemas:  make(map[string]ContentType),
 		content:  make(map[string][]ContentItem),
 		nextID:   1,
@@ -89,22 +115,39 @@ func newDataset(name, dataFile string) *Dataset {
 // Name returns the dataset's name.
 func (d *Dataset) Name() string { return d.name }
 
+// Meta returns a copy of the dataset's metadata.
+func (d *Dataset) Meta() Metadata {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.meta
+}
+
+// dataPath returns the file the schemas/content JSON lives in for this
+// dataset's format.
+func (d *Dataset) dataPath() string {
+	if d.format == formatVersionCurrent {
+		return filepath.Join(d.dir, dataFileName)
+	}
+	return d.flatPath
+}
+
 // load reads persisted data from disk into the dataset. A missing file is
 // not an error (first run); the dataset stays empty.
 func (d *Dataset) load() {
-	f, err := os.Open(d.dataFile)
+	path := d.dataPath()
+	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return // first run, nothing to load
 	}
 	if err != nil {
-		slog.Warn("could not open data file", "file", d.dataFile, "err", err)
+		slog.Warn("could not open data file", "file", path, "err", err)
 		return
 	}
 	defer f.Close()
 
 	var pd persistedData
 	if err := json.NewDecoder(f).Decode(&pd); err != nil {
-		slog.Warn("could not decode data file", "file", d.dataFile, "err", err)
+		slog.Warn("could not decode data file", "file", path, "err", err)
 		return
 	}
 
@@ -121,15 +164,27 @@ func (d *Dataset) load() {
 	}
 }
 
-// persistLocked writes the current state to disk.
+// persistLocked writes the current state to disk. For the v2 folder format
+// it also stamps meta.json's ModifiedAt. Writes are atomic (temp + rename).
 // Caller MUST hold d.mu (write lock) before calling this.
 func (d *Dataset) persistLocked() {
+	path := d.dataPath()
+	// The temp file must share a filesystem with the destination for the
+	// rename to be atomic, so create it in the destination's directory.
+	tmpDir := filepath.Dir(path)
+	// For a brand-new v2 dataset the folder may not exist yet.
+	if d.format == formatVersionCurrent {
+		if err := os.MkdirAll(d.dir, 0o755); err != nil {
+			slog.Warn("persist: could not create dataset dir", "dir", d.dir, "err", err)
+			return
+		}
+	}
 	pd := persistedData{
 		NextID:  d.nextID,
 		Schemas: d.schemas,
 		Content: d.content,
 	}
-	f, err := os.CreateTemp(dataDir, "protocms-*.json")
+	f, err := os.CreateTemp(tmpDir, "protocms-*.json")
 	if err != nil {
 		slog.Warn("persist: could not create temp file", "err", err)
 		return
@@ -142,9 +197,18 @@ func (d *Dataset) persistLocked() {
 		return
 	}
 	f.Close()
-	if err := os.Rename(tmpName, d.dataFile); err != nil {
+	if err := os.Rename(tmpName, path); err != nil {
 		os.Remove(tmpName)
-		slog.Warn("persist: could not rename temp file", "tmp", tmpName, "dest", d.dataFile, "err", err)
+		slog.Warn("persist: could not rename temp file", "tmp", tmpName, "dest", path, "err", err)
+		return
+	}
+
+	// v2: stamp and write metadata alongside the data.
+	if d.format == formatVersionCurrent {
+		d.meta.ModifiedAt = time.Now().UTC()
+		if err := saveMetadata(d.dir, d.meta); err != nil {
+			slog.Warn("persist: could not write metadata", "dir", d.dir, "err", err)
+		}
 	}
 }
 

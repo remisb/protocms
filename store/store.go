@@ -39,19 +39,18 @@ func DefaultRegistry() *Registry { return defaultRegistry }
 // until Init has run.
 func Default() *Dataset { return defaultDataset }
 
-// Init resolves the data directory, ensures it exists, and registers the
-// named dataset as the default. It must run before Load.
+// Init ensures the data directory exists. It must run before Load.
 func Init(dataset string) {
 	ensureDataDir()
-	defaultDataset = newDataset(dataset, dataDir+"/"+dataset+".json")
-	slog.Info("data file", "path", defaultDataset.dataFile)
 }
 
 // Load reads the default dataset's persisted data from disk into memory and
-// registers it in the default registry. Init must have run first.
+// registers it in the default registry. The on-disk format (v2 folder or v1
+// flat file) is detected automatically. Init must have run first.
 func Load(dataset string) {
 	d := defaultRegistry.Load(dataset)
 	defaultDataset = d
+	slog.Info("dataset loaded", "name", d.Name(), "data", d.dataPath())
 }
 
 // --- Package-level convenience wrappers over the default dataset ----------
