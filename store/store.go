@@ -60,6 +60,16 @@ func Load(dataset string) {
 
 func GetStats() DatasetStats { return defaultDataset.GetStats() }
 
+// GetMetrics returns the default dataset's query-metrics snapshot.
+func GetMetrics() MetricsReport { return defaultDataset.Metrics().Snapshot() }
+
+// GetInfo returns the default dataset's info aggregate (meta + stats +
+// memory + metrics).
+func GetInfo() DatasetInfo { return defaultDataset.Info() }
+
+// ListDatasets returns info for every loaded dataset.
+func ListDatasets() []DatasetInfo { return defaultRegistry.List() }
+
 func GetAllContentTypes() []ContentType { return defaultDataset.GetAllContentTypes() }
 
 func CreateContentType(ct ContentType) { defaultDataset.CreateContentType(ct) }

@@ -26,6 +26,12 @@ func statsHandler(w http.ResponseWriter, _ *http.Request) {
 	jsonResponse(w, http.StatusOK, store.GetStats())
 }
 
+// metricsHandler returns the default dataset's query metrics + estimated
+// memory footprint. Phase 4 generalizes this to per-dataset admin routes.
+func metricsHandler(w http.ResponseWriter, _ *http.Request) {
+	jsonResponse(w, http.StatusOK, store.GetInfo())
+}
+
 // meHandler returns the identity and role of the current bearer token.
 // Registered behind the Authenticator middleware, so Claims are always present.
 func meHandler(w http.ResponseWriter, r *http.Request) {

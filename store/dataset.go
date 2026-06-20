@@ -85,6 +85,7 @@ type Dataset struct {
 	schemas map[string]ContentType
 	content map[string][]ContentItem
 	nextID  int
+	metrics *Metrics
 }
 
 // newFolderDataset returns an empty dataset backed by the v2 folder layout.
@@ -97,6 +98,7 @@ func newFolderDataset(name, dir string, meta Metadata) *Dataset {
 		schemas: make(map[string]ContentType),
 		content: make(map[string][]ContentItem),
 		nextID:  1,
+		metrics: newMetrics(),
 	}
 }
 
@@ -109,6 +111,7 @@ func newLegacyDataset(name, flatPath string) *Dataset {
 		schemas:  make(map[string]ContentType),
 		content:  make(map[string][]ContentItem),
 		nextID:   1,
+		metrics:  newMetrics(),
 	}
 }
 
@@ -120,6 +123,18 @@ func (d *Dataset) Meta() Metadata {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	return d.meta
+}
+
+// Metrics returns the dataset's query-metrics recorder.
+func (d *Dataset) Metrics() *Metrics { return d.metrics }
+
+// track returns a function that records a metrics observation for (op,
+// contentType) with the elapsed time since track was called. Intended use:
+//
+//	defer d.track(OpList, contentType)()
+func (d *Dataset) track(op, contentType string) func() {
+	start := time.Now()
+	return func() { d.metrics.Record(op, contentType, time.Since(start)) }
 }
 
 // dataPath returns the file the schemas/content JSON lives in for this
@@ -212,6 +227,60 @@ func (d *Dataset) persistLocked() {
 	}
 }
 
+// DatasetInfo aggregates a dataset's identity, size, and metrics for the
+// management/list endpoints.
+type DatasetInfo struct {
+	Name        string        `json:"name"`
+	Format      int           `json:"data_format_version"`
+	Meta        Metadata      `json:"meta"`
+	Stats       DatasetStats  `json:"stats"`
+	ApproxBytes int           `json:"approx_bytes"`
+	Metrics     MetricsReport `json:"metrics"`
+}
+
+// approxBytesLocked estimates the dataset's in-memory footprint by the
+// marshaled size of its schemas+content. It is an estimate, not an exact
+// allocation count (Go provides no per-object sizing). Caller holds d.mu.
+func (d *Dataset) approxBytesLocked() int {
+	n := 0
+	if b, err := json.Marshal(d.content); err == nil {
+		n += len(b)
+	}
+	if b, err := json.Marshal(d.schemas); err == nil {
+		n += len(b)
+	}
+	return n
+}
+
+// Info returns a point-in-time aggregate of identity, stats, estimated
+// memory, and query metrics.
+func (d *Dataset) Info() DatasetInfo {
+	d.mu.RLock()
+	itemsPerType := make(map[string]int, len(d.schemas))
+	total := 0
+	for name := range d.schemas {
+		count := len(d.content[name])
+		itemsPerType[name] = count
+		total += count
+	}
+	info := DatasetInfo{
+		Name:   d.name,
+		Format: d.format,
+		Meta:   d.meta,
+		Stats: DatasetStats{
+			Dataset:      d.name,
+			ContentTypes: len(d.schemas),
+			TotalItems:   total,
+			ItemsPerType: itemsPerType,
+		},
+		ApproxBytes: d.approxBytesLocked(),
+	}
+	d.mu.RUnlock()
+	// Metrics has its own lock; snapshot outside d.mu to avoid lock nesting.
+	info.Metrics = d.metrics.Snapshot()
+	return info
+}
+
 // GetStats returns counts for the dataset.
 func (d *Dataset) GetStats() DatasetStats {
 	d.mu.RLock()
@@ -259,6 +328,7 @@ func (d *Dataset) SchemaExists(contentType string) bool {
 }
 
 func (d *Dataset) ListContent(contentType string) ([]ContentItem, bool) {
+	defer d.track(OpList, contentType)()
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	items, exists := d.content[contentType]
@@ -266,6 +336,7 @@ func (d *Dataset) ListContent(contentType string) ([]ContentItem, bool) {
 }
 
 func (d *Dataset) GetSingleContent(contentType, idStr string) (ContentItem, bool) {
+	defer d.track(OpGet, contentType)()
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	for _, item := range d.content[contentType] {
@@ -287,6 +358,7 @@ func (d *Dataset) GetContentType(contentType string) (ContentType, error) {
 }
 
 func (d *Dataset) CreateContent(contentType string, item ContentItem) (ContentItem, error) {
+	defer d.track(OpCreate, contentType)()
 	schema, err := d.GetContentType(contentType)
 	if err != nil {
 		return ContentItem{}, err
@@ -309,6 +381,7 @@ func (d *Dataset) CreateContent(contentType string, item ContentItem) (ContentIt
 }
 
 func (d *Dataset) UpdateContent(contentType, idStr string, update ContentItem) (ContentItem, error) {
+	defer d.track(OpUpdate, contentType)()
 	if _, err := d.GetContentType(contentType); err != nil {
 		return ContentItem{}, err
 	}
@@ -332,6 +405,7 @@ func (d *Dataset) UpdateContent(contentType, idStr string, update ContentItem) (
 }
 
 func (d *Dataset) DeleteContent(contentType, idStr string) bool {
+	defer d.track(OpDelete, contentType)()
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	items := d.content[contentType]
@@ -348,6 +422,7 @@ func (d *Dataset) DeleteContent(contentType, idStr string) bool {
 // FilterContent returns items of contentType where every field in filters matches.
 // Matching is done by string-converting stored values, which cover numbers, booleans, and strings.
 func (d *Dataset) FilterContent(contentType string, filters map[string]string) ([]ContentItem, bool) {
+	defer d.track(OpFilter, contentType)()
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	items, exists := d.content[contentType]

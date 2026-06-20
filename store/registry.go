@@ -101,3 +101,20 @@ func (r *Registry) Names() []string {
 	}
 	return names
 }
+
+// List returns an info aggregate (meta + stats + memory + metrics) for every
+// loaded dataset.
+func (r *Registry) List() []DatasetInfo {
+	r.mu.RLock()
+	datasets := make([]*Dataset, 0, len(r.datasets))
+	for _, d := range r.datasets {
+		datasets = append(datasets, d)
+	}
+	r.mu.RUnlock()
+
+	out := make([]DatasetInfo, 0, len(datasets))
+	for _, d := range datasets {
+		out = append(out, d.Info())
+	}
+	return out
+}

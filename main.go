@@ -49,6 +49,7 @@ func main() {
 	// Reads are public; writes require a bearer token (API key or JWT).
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("GET /api/stats", statsHandler)
+	mux.HandleFunc("GET /api/metrics", metricsHandler)
 	mux.HandleFunc("GET /api/content-types", getContentTypesHandler)
 	mux.HandleFunc("POST /api/content-types", protectHandler(createContentTypeHandler, authn, "admin"))
 
@@ -99,6 +100,7 @@ func printRoutes() {
 	routes := []string{
 		"GET    /api/health",
 		"GET    /api/stats",
+		"GET    /api/metrics",
 		"GET    /api/content-types",
 		"POST   /api/content-types              (auth: admin)",
 		"POST   /api/login",
