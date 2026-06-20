@@ -46,6 +46,11 @@ credential.
   metadata form. The sidebar account header now shows the credential's
   dataset, and a "session expired" toast surfaces when a token is rejected
   mid-session.
+- **Per-dataset uploads.** Uploaded files now live in
+  `data/<dataset>/uploads/`. Uploading (`POST /api/uploads`) targets the
+  dataset bound to the credential and is only allowed for migrated (v2)
+  datasets. `-migrate` moves any shared uploads referenced by a dataset into
+  its folder and rewrites the stored URLs.
 
 #### Changed
 
@@ -56,6 +61,11 @@ credential.
 - `GET /api/me` now returns the credential's bound `dataset`.
 - Content routes are unchanged in shape; the dataset is determined by the
   authenticated API key or JWT rather than by URL or a default.
+- Upload serving moved from `GET /api/uploads/{name}` to
+  `GET /api/uploads/{dataset}/{name}` (still public, so plain `<img>` tags
+  load images); the upload response `url` now includes the dataset segment.
+  **(Breaking for stored upload URLs without a dataset segment — migration
+  rewrites them.)**
 - `openapi.yaml` updated for the auth-on-reads change, the dataset routes, and
   the new metadata/metrics schemas.
 
@@ -63,7 +73,6 @@ credential.
 
 - Existing `PROTOCMS_API_KEYS` / `PROTOCMS_USERS` entries without a dataset
   segment keep working (they bind to `default`).
-- Uploads remain a single shared `data/uploads/` directory (not yet
-  dataset-scoped).
-- No data files are deleted by migration; cleanup of legacy `data/<name>.json`
-  files is left to the operator.
+- No data files are deleted by migration; cleanup of legacy
+  `data/<name>.json` files and the shared `data/uploads/` directory is left to
+  the operator.

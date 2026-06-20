@@ -182,6 +182,23 @@ func (d *Dataset) dataPath() string {
 	return d.flatPath
 }
 
+// uploadsSubdir is the per-dataset uploads folder name inside a v2 dataset.
+const uploadsSubdir = "uploads"
+
+// UploadDir returns the dataset's uploads directory (data/<name>/uploads),
+// creating it if needed. Only v2 folder datasets support uploads; legacy v1
+// datasets return an error (migrate them first).
+func (d *Dataset) UploadDir() (string, error) {
+	if d.format != formatVersionCurrent {
+		return "", fmt.Errorf("dataset %q is in legacy format; migrate it to enable uploads", d.name)
+	}
+	dir := filepath.Join(d.dir, uploadsSubdir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 // load reads persisted data from disk into the dataset. A missing file is
 // not an error (first run); the dataset stays empty.
 func (d *Dataset) load() {

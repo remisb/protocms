@@ -10,12 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/remisb/protocms/store"
 )
 
-const (
-	uploadDir     = "data/uploads"
-	maxUploadSize = 8 << 20 // 8 MiB
-)
+const maxUploadSize = 8 << 20 // 8 MiB
 
 var allowedImageExt = map[string]string{
 	".png":  "image/png",
@@ -26,11 +25,16 @@ var allowedImageExt = map[string]string{
 	".svg":  "image/svg+xml",
 }
 
-// uploadHandler accepts multipart/form-data with a "file" field
-// and writes it to data/uploads/<random>.<ext>.
+// uploadHandler accepts multipart/form-data with a "file" field and writes it
+// to the request dataset's uploads folder (data/<dataset>/uploads/<random>.<ext>).
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
-		http.Error(w, `{"error":"cannot create upload dir"}`, http.StatusInternalServerError)
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
+	uploadDir, err := d.UploadDir()
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusConflict)
 		return
 	}
 
@@ -74,18 +78,34 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusCreated, map[string]string{
-		"url":      uploadDir + "/" + name,
+		"url":      "/api/uploads/" + d.Name() + "/" + name,
 		"name":     name,
 		"original": header.Filename,
 	})
 }
 
-// serveUploadHandler streams a previously uploaded file by name.
-// The name is validated to prevent path traversal.
+// serveUploadHandler streams a previously uploaded file from a dataset's
+// uploads folder. The route is public (GET /api/uploads/{dataset}/{name}) so
+// plain <img> tags can load images; the dataset is taken from the path. Both
+// the dataset name and file name are validated to prevent path traversal.
 func serveUploadHandler(w http.ResponseWriter, r *http.Request) {
+	dataset := r.PathValue("dataset")
 	name := r.PathValue("name")
+	if !safeDatasetName(dataset) {
+		http.Error(w, `{"error":"invalid dataset"}`, http.StatusBadRequest)
+		return
+	}
 	if !safeUploadName(name) {
 		http.Error(w, `{"error":"invalid name"}`, http.StatusBadRequest)
+		return
+	}
+	d, ok := store.DefaultRegistry().Get(dataset)
+	if !ok {
+		d = store.DefaultRegistry().Load(dataset)
+	}
+	uploadDir, err := d.UploadDir()
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusConflict)
 		return
 	}
 	path := filepath.Join(uploadDir, name)
@@ -117,6 +137,15 @@ func randomName(ext string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s%s", hex.EncodeToString(buf[:]), ext), nil
+}
+
+// safeDatasetName disallows path separators and dotfiles so a dataset name
+// from the URL cannot escape the data directory.
+func safeDatasetName(name string) bool {
+	if name == "" || strings.ContainsRune(name, '/') || strings.ContainsRune(name, '\\') {
+		return false
+	}
+	return !strings.HasPrefix(name, ".")
 }
 
 // safeUploadName disallows path separators and dotfiles, and requires
