@@ -52,6 +52,26 @@ func (c Config) HasUsers() bool { return len(c.users) > 0 }
 
 func (c Config) HasAPIKeys() bool { return len(c.apiKeys) > 0 }
 
+// Datasets returns the distinct set of datasets bound to the configured
+// credentials (API keys and users), so they can be preloaded at startup.
+func (c Config) Datasets() []string {
+	seen := make(map[string]bool)
+	var out []string
+	add := func(ds string) {
+		if ds != "" && !seen[ds] {
+			seen[ds] = true
+			out = append(out, ds)
+		}
+	}
+	for _, kc := range c.apiKeys {
+		add(kc.dataset)
+	}
+	for _, u := range c.users {
+		add(u.dataset)
+	}
+	return out
+}
+
 func (c Config) ValidatePassword(userName, password string) error {
 	_, err := c.GetUser(userName, password)
 	if err != nil && errors.Is(err, ErrInvalidCredentials) {

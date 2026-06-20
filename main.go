@@ -44,6 +44,18 @@ func main() {
 	authCfg := auth.LoadConfig()
 	authn := middleware.Authenticator(auth.NewVerifier(authCfg))
 
+	// Preload every dataset referenced by a configured credential, so the
+	// first request for each doesn't pay the load cost. The -dataset default
+	// is already loaded above; the registry skips datasets already in memory.
+	reg := store.DefaultRegistry()
+	for _, ds := range authCfg.Datasets() {
+		if _, ok := reg.Get(ds); ok {
+			continue
+		}
+		reg.Load(ds)
+		slog.Info("preloaded credential dataset", "dataset", ds)
+	}
+
 	mux := http.NewServeMux()
 
 	rw := []string{"admin", "editor"} // read+write roles
