@@ -51,6 +51,9 @@ credential.
   dataset bound to the credential and is only allowed for migrated (v2)
   datasets. `-migrate` moves any shared uploads referenced by a dataset into
   its folder and rewrites the stored URLs.
+- **Credential datasets are preloaded at startup.** Every dataset referenced
+  by a configured API key or user is loaded into memory when the server
+  starts, so the first request for each doesn't pay the load cost.
 
 #### Changed
 
