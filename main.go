@@ -31,9 +31,10 @@ func main() {
 			"from", res.OldFile,
 			"to", res.NewDir,
 			"types", res.Types,
-			"items", res.Items)
-		fmt.Printf("migrated %q: %s -> %s/ (%d types, %d items); old file kept\n",
-			res.Name, res.OldFile, res.NewDir, res.Types, res.Items)
+			"items", res.Items,
+			"uploads", res.UploadsMigrated)
+		fmt.Printf("migrated %q: %s -> %s/ (%d types, %d items, %d uploads); old file kept\n",
+			res.Name, res.OldFile, res.NewDir, res.Types, res.Items, res.UploadsMigrated)
 		return
 	}
 
@@ -74,9 +75,10 @@ func main() {
 	mux.HandleFunc("POST /api/datasets/{name}/unload", protectHandler(unloadDatasetHandler, authCfg, authn, "admin"))
 	mux.HandleFunc("PATCH /api/datasets/{name}", protectHandler(patchDatasetHandler, authCfg, authn, "admin"))
 
-	// Uploads
+	// Uploads (per-dataset). POST resolves the dataset from the credential;
+	// GET is public with the dataset in the path so plain <img> tags load.
 	mux.HandleFunc("POST /api/uploads", protectHandler(uploadHandler, authCfg, authn, rw...))
-	mux.HandleFunc("GET /api/uploads/{name}", serveUploadHandler)
+	mux.HandleFunc("GET /api/uploads/{dataset}/{name}", serveUploadHandler)
 
 	handler := middleware.Chain(
 		mux,
@@ -126,7 +128,7 @@ func printRoutes() {
 		"POST   /api/datasets/{name}/unload      (auth: admin)",
 		"PATCH  /api/datasets/{name}             (auth: admin)",
 		"POST   /api/uploads                     (auth: admin|editor)",
-		"GET    /api/uploads/{name}",
+		"GET    /api/uploads/{dataset}/{name}",
 	}
 	for _, r := range routes {
 		slog.Info("route registered", "route", r)
