@@ -22,14 +22,40 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func statsHandler(w http.ResponseWriter, _ *http.Request) {
-	jsonResponse(w, http.StatusOK, store.GetStats())
+// datasetForRequest resolves the dataset bound to the request's credential
+// and looks it up in the registry. If the credential's dataset is not
+// currently loaded, it is loaded on demand. It writes an error response and
+// returns nil on failure.
+func datasetForRequest(w http.ResponseWriter, r *http.Request) *store.Dataset {
+	name, ok := auth.DatasetFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"no dataset bound to credential"}`, http.StatusForbidden)
+		return nil
+	}
+	reg := store.DefaultRegistry()
+	if d, ok := reg.Get(name); ok {
+		return d
+	}
+	// Load on demand the first time a credential's dataset is requested.
+	return reg.Load(name)
 }
 
-// metricsHandler returns the default dataset's query metrics + estimated
-// memory footprint. Phase 4 generalizes this to per-dataset admin routes.
-func metricsHandler(w http.ResponseWriter, _ *http.Request) {
-	jsonResponse(w, http.StatusOK, store.GetInfo())
+func statsHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
+	jsonResponse(w, http.StatusOK, d.GetStats())
+}
+
+// metricsHandler returns the request dataset's query metrics + estimated
+// memory footprint.
+func metricsHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
+	jsonResponse(w, http.StatusOK, d.Info())
 }
 
 // meHandler returns the identity and role of the current bearer token.
@@ -40,18 +66,28 @@ func meHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 		return
 	}
+	dataset, _ := auth.DatasetFromContext(r.Context())
 	jsonResponse(w, http.StatusOK, map[string]any{
 		"subject": claims.Subject,
 		"roles":   claims.Roles,
+		"dataset": dataset,
 	})
 }
 
 // Content Types
-func getContentTypesHandler(w http.ResponseWriter, _ *http.Request) {
-	jsonResponse(w, http.StatusOK, store.GetAllContentTypes())
+func getContentTypesHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
+	jsonResponse(w, http.StatusOK, d.GetAllContentTypes())
 }
 
 func createContentTypeHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
 	var ct store.ContentType
 	if err := json.NewDecoder(r.Body).Decode(&ct); err != nil {
 		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
@@ -63,12 +99,16 @@ func createContentTypeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"name and fields are required"}`, http.StatusBadRequest)
 		return
 	}
-	store.CreateContentType(ct)
+	d.CreateContentType(ct)
 	jsonResponse(w, http.StatusCreated, ct)
 }
 
 // List content (GET /api/content/{contentType})
 func listContentHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
 	contentType := r.PathValue("contentType")
 	if contentType == "" {
 		http.Error(w, `{"error":"content type required"}`, http.StatusBadRequest)
@@ -87,9 +127,9 @@ func listContentHandler(w http.ResponseWriter, r *http.Request) {
 	var items []store.ContentItem
 	var exists bool
 	if len(filters) > 0 {
-		items, exists = store.FilterContent(contentType, filters)
+		items, exists = d.FilterContent(contentType, filters)
 	} else {
-		items, exists = store.ListContent(contentType)
+		items, exists = d.ListContent(contentType)
 	}
 
 	if !exists {
@@ -107,6 +147,10 @@ func listContentHandler(w http.ResponseWriter, r *http.Request) {
 
 // Get a single item (GET /api/content/{contentType}/{id})
 func getSingleContentHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
 	contentType := r.PathValue("contentType")
 	idStr := r.PathValue("id")
 	if contentType == "" || idStr == "" {
@@ -114,7 +158,7 @@ func getSingleContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, found := store.GetSingleContent(contentType, idStr)
+	item, found := d.GetSingleContent(contentType, idStr)
 	if !found {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
@@ -123,12 +167,16 @@ func getSingleContentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createContentHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
 	contentType := r.PathValue("contentType")
 	if contentType == "" {
 		http.Error(w, `{"error":"content type required"}`, http.StatusBadRequest)
 		return
 	}
-	if !store.SchemaExists(contentType) {
+	if !d.SchemaExists(contentType) {
 		http.Error(w, `{"error":"unknown content type. Register first via /content-types"}`, http.StatusBadRequest)
 		return
 	}
@@ -144,7 +192,7 @@ func createContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := store.CreateContent(contentType, item)
+	content, err := d.CreateContent(contentType, item)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to create content: %v"}`, err), http.StatusInternalServerError)
 		return
@@ -154,6 +202,10 @@ func createContentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateContentHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
 	contentType := r.PathValue("contentType")
 	idStr := r.PathValue("id")
 	if contentType == "" || idStr == "" {
@@ -169,7 +221,7 @@ func updateContentHandler(w http.ResponseWriter, r *http.Request) {
 	var update store.ContentItem
 	json.Unmarshal(body, &update)
 
-	item, err := store.UpdateContent(contentType, idStr, update)
+	item, err := d.UpdateContent(contentType, idStr, update)
 	if err != nil {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
@@ -178,6 +230,10 @@ func updateContentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteContentHandler(w http.ResponseWriter, r *http.Request) {
+	d := datasetForRequest(w, r)
+	if d == nil {
+		return
+	}
 	contentType := r.PathValue("contentType")
 	idStr := r.PathValue("id")
 	if contentType == "" || idStr == "" {
@@ -185,7 +241,7 @@ func deleteContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !store.DeleteContent(contentType, idStr) {
+	if !d.DeleteContent(contentType, idStr) {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
 	}

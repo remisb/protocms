@@ -128,6 +128,42 @@ func (d *Dataset) Meta() Metadata {
 // Metrics returns the dataset's query-metrics recorder.
 func (d *Dataset) Metrics() *Metrics { return d.metrics }
 
+// MetaPatch carries the editable metadata fields. A nil pointer means "leave
+// unchanged"; a non-nil pointer (including empty) overwrites.
+type MetaPatch struct {
+	Author        *string   `json:"author,omitempty"`
+	Description   *string   `json:"description,omitempty"`
+	Tags          *[]string `json:"tags,omitempty"`
+	SchemaVersion *int      `json:"schema_version,omitempty"`
+}
+
+// UpdateMeta applies a metadata patch and persists it. Only legacy v1
+// datasets reject this (no meta.json); they return an error.
+func (d *Dataset) UpdateMeta(p MetaPatch) (Metadata, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.format != formatVersionCurrent {
+		return Metadata{}, fmt.Errorf("dataset %q is in legacy format; migrate it before editing metadata", d.name)
+	}
+	if p.Author != nil {
+		d.meta.Author = *p.Author
+	}
+	if p.Description != nil {
+		d.meta.Description = *p.Description
+	}
+	if p.Tags != nil {
+		d.meta.Tags = *p.Tags
+	}
+	if p.SchemaVersion != nil {
+		d.meta.SchemaVersion = *p.SchemaVersion
+	}
+	d.meta.ModifiedAt = time.Now().UTC()
+	if err := saveMetadata(d.dir, d.meta); err != nil {
+		return Metadata{}, err
+	}
+	return d.meta, nil
+}
+
 // track returns a function that records a metrics observation for (op,
 // contentType) with the elapsed time since track was called. Intended use:
 //
