@@ -21,20 +21,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	if *migrate {
-		res, err := store.MigrateDataset(*dataset)
-		if err != nil {
-			slog.Error("migration failed", "dataset", *dataset, "err", err)
-			os.Exit(1)
-		}
-		slog.Info("migration complete",
-			"dataset", res.Name,
-			"from", res.OldFile,
-			"to", res.NewDir,
-			"types", res.Types,
-			"items", res.Items,
-			"uploads", res.UploadsMigrated)
-		fmt.Printf("migrated %q: %s -> %s/ (%d types, %d items, %d uploads); old file kept\n",
-			res.Name, res.OldFile, res.NewDir, res.Types, res.Items, res.UploadsMigrated)
+		performMigration(dataset)
 		return
 	}
 
@@ -118,6 +105,23 @@ func main() {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
 	}
+}
+
+func performMigration(dataset *string) {
+	res, err := store.MigrateDataset(*dataset)
+	if err != nil {
+		slog.Error("migration failed", "dataset", *dataset, "err", err)
+		os.Exit(1)
+	}
+	slog.Info("migration complete",
+		"dataset", res.Name,
+		"from", res.OldFile,
+		"to", res.NewDir,
+		"types", res.Types,
+		"items", res.Items,
+		"uploads", res.UploadsMigrated)
+	fmt.Printf("migrated %q: %s -> %s/ (%d types, %d items, %d uploads); old file kept\n",
+		res.Name, res.OldFile, res.NewDir, res.Types, res.Items, res.UploadsMigrated)
 }
 
 func printRoutes() {
