@@ -1,6 +1,9 @@
 import type {
   ContentItem,
   ContentType,
+  DatasetInfo,
+  DatasetMeta,
+  DatasetMetaPatch,
   DatasetStats,
   LoginResponse,
   Me,
@@ -150,4 +153,22 @@ export const api = {
       `/content/${encodeURIComponent(contentType)}/${encodeURIComponent(String(id))}`,
       { method: "DELETE" },
     ),
+
+  // Dataset management (admin only).
+  listDatasets: () => request<DatasetInfo[]>("/datasets"),
+  getDataset: (name: string) =>
+    request<DatasetInfo>(`/datasets/${encodeURIComponent(name)}`),
+  loadDataset: (name: string) =>
+    request<DatasetInfo>(`/datasets/${encodeURIComponent(name)}/load`, {
+      method: "POST",
+    }),
+  unloadDataset: (name: string) =>
+    request<void>(`/datasets/${encodeURIComponent(name)}/unload`, {
+      method: "POST",
+    }),
+  updateDataset: (name: string, patch: DatasetMetaPatch) =>
+    request<DatasetMeta>(`/datasets/${encodeURIComponent(name)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
 };

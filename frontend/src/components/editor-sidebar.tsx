@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { FileText, Layers } from "lucide-react";
+import { Database, FileText, Layers } from "lucide-react";
 import type { ContentType } from "@/lib/types";
 import {
   Sidebar,
@@ -51,6 +51,19 @@ export function EditorSidebar({
                   <NavLink to="/designer">
                     <Layers />
                     <span>Designer</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {isAdmin && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith("/datasets")}
+                >
+                  <NavLink to="/datasets">
+                    <Database />
+                    <span>Datasets</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

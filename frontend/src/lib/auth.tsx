@@ -4,8 +4,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { toast } from "sonner";
 import { api, getToken, setToken } from "@/lib/api";
 import type { Me } from "@/lib/types";
 
@@ -15,6 +17,7 @@ interface AuthContextValue {
   status: AuthStatus;
   user: Me | null;
   role: string | null;
+  dataset: string | null;
   isAdmin: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
@@ -25,6 +28,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<Me | null>(null);
+
+  // Mirror status in a ref so event handlers can read it without re-subscribing.
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   const reset = useCallback(() => {
     setUser(null);
@@ -57,7 +64,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // The API client fires this when the server rejects our token mid-session.
   useEffect(() => {
-    const onUnauthorized = () => reset();
+    const onUnauthorized = () => {
+      // Only surface a message if we were actually in an active session;
+      // a stale token caught during initial validation just drops to login.
+      if (statusRef.current === "authed") {
+        toast.error("Session expired — please sign in again.");
+      }
+      reset();
+    };
     window.addEventListener("protocms:unauthorized", onUnauthorized);
     return () =>
       window.removeEventListener("protocms:unauthorized", onUnauthorized);
@@ -77,17 +91,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [reset]);
 
   const role = user?.roles?.[0] ?? null;
+  const dataset = user?.dataset ?? null;
 
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
       user,
       role,
+      dataset,
       isAdmin: role === "admin",
       login,
       logout,
     }),
-    [status, user, role, login, logout],
+    [status, user, role, dataset, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

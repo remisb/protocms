@@ -4,10 +4,18 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { DatasetsPage } from "@/pages/datasets";
 import { DesignerPage } from "@/pages/designer";
 import { EditorPage } from "@/pages/editor";
 import { LoginPage } from "@/pages/login";
 import "./index.css";
+
+// AdminRoute renders its children only for admins; everyone else is sent to
+// the editor.
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <>{children}</> : <Navigate to="/editor" replace />;
+}
 
 function App() {
   const { status } = useAuth();
@@ -31,6 +39,14 @@ function App() {
         <Route path="designer" element={<DesignerPage />} />
         <Route path="editor" element={<EditorPage />} />
         <Route path="editor/:contentType" element={<EditorPage />} />
+        <Route
+          path="datasets"
+          element={
+            <AdminRoute>
+              <DatasetsPage />
+            </AdminRoute>
+          }
+        />
       </Route>
     </Routes>
   );
