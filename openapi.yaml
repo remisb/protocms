@@ -22,6 +22,8 @@ tags:
     description: Manage content items for a given content type
   - name: Datasets
     description: Admin-only management of in-memory datasets
+  - name: Uploads
+    description: Per-dataset image uploads
 
 paths:
   /api/health:
@@ -583,6 +585,100 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/uploads:
+    post:
+      summary: Upload an image to the caller's dataset
+      operationId: uploadFile
+      tags: [Uploads]
+      description: |
+        Stores an uploaded image in the uploads folder of the dataset bound to
+        the credential (`data/<dataset>/uploads/`). Only migrated (v2) datasets
+        support uploads. Accepts `multipart/form-data` with a single `file`
+        field; max size 8 MiB. Allowed types: png, jpg/jpeg, gif, webp, svg.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: File stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResult'
+        '400':
+          description: Missing/invalid file, unsupported type, or too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Dataset is in legacy format; migrate it to enable uploads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/uploads/{dataset}/{name}:
+    parameters:
+      - $ref: '#/components/parameters/datasetName'
+      - name: name
+        in: path
+        required: true
+        description: The stored file name returned by the upload response.
+        schema:
+          type: string
+          example: a5e58b4cd933d3548b29c9dab33daf3e.png
+
+    get:
+      summary: Serve an uploaded image
+      operationId: serveUpload
+      tags: [Uploads]
+      description: |
+        Public (no authentication) so plain `<img>` tags can load images. The
+        dataset is taken from the path. Responds with the image bytes and a
+        long-lived immutable cache header.
+      responses:
+        '200':
+          description: The image file
+          content:
+            image/png: {}
+            image/jpeg: {}
+            image/gif: {}
+            image/webp: {}
+            image/svg+xml: {}
+        '400':
+          description: Invalid dataset or file name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Dataset is in legacy format; migrate it to enable uploads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -866,3 +962,19 @@ components:
           type: string
           description: Human-readable error message
           example: not found
+
+    UploadResult:
+      type: object
+      properties:
+        url:
+          type: string
+          description: Path to serve the file, including the dataset segment.
+          example: /api/uploads/shop/a5e58b4cd933d3548b29c9dab33daf3e.png
+        name:
+          type: string
+          description: The stored (randomized) file name.
+          example: a5e58b4cd933d3548b29c9dab33daf3e.png
+        original:
+          type: string
+          description: The original client-supplied filename.
+          example: logo.png
