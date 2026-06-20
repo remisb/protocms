@@ -20,6 +20,8 @@ tags:
     description: Manage content type schemas
   - name: Content
     description: Manage content items for a given content type
+  - name: Datasets
+    description: Admin-only management of in-memory datasets
 
 paths:
   /api/health:
@@ -50,6 +52,11 @@ paths:
       summary: Get dataset statistics
       operationId: getStats
       tags: [Stats]
+      description: |
+        Requires any valid bearer token. The dataset is determined by the
+        authenticated API key or JWT.
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Current dataset statistics
@@ -57,12 +64,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DatasetStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/metrics:
+    get:
+      summary: Get query metrics and dataset info for the caller
+      operationId: getMetrics
+      tags: [Stats]
+      description: |
+        Requires a bearer token with the `admin` or `editor` role. Returns the
+        caller's dataset info: stats, estimated memory, and query metrics. The
+        dataset is determined by the authenticated API key or JWT.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dataset info for the authenticated caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/content-types:
     get:
       summary: List all content types
       operationId: listContentTypes
       tags: [Content Types]
+      description: |
+        Requires any valid bearer token. The dataset is determined by the
+        authenticated API key or JWT.
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Array of registered content type schemas
@@ -72,6 +111,10 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ContentType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
     post:
       summary: Create a content type
@@ -145,7 +188,7 @@ paths:
                 properties:
                   token:
                     type: string
-                    description: HS256 JWT to send as `Authorization: Bearer <token>`
+                    description: "HS256 JWT to send as `Authorization: Bearer <token>`"
                   role:
                     type: string
                     enum: [admin, editor]
@@ -197,6 +240,13 @@ paths:
                     items:
                       type: string
                       enum: [admin, editor]
+                  dataset:
+                    type: string
+                    description: Name of the dataset resolved from the credential
+                example:
+                  subject: jane
+                  roles: [editor]
+                  dataset: default
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -210,6 +260,11 @@ paths:
       summary: List content items
       operationId: listContent
       tags: [Content]
+      description: |
+        Requires any valid bearer token. The dataset is determined by the
+        authenticated API key or JWT.
+      security:
+        - bearerAuth: []
       parameters:
         - name: limit
           in: query
@@ -242,6 +297,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
     post:
       summary: Create a content item
@@ -286,6 +345,11 @@ paths:
       summary: Get a single content item
       operationId: getContent
       tags: [Content]
+      description: |
+        Requires any valid bearer token. The dataset is determined by the
+        authenticated API key or JWT.
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: The requested content item
@@ -299,6 +363,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           description: Item not found
           content:
@@ -373,6 +441,148 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/datasets:
+    get:
+      summary: List loaded datasets
+      operationId: listDatasets
+      tags: [Datasets]
+      description: Requires a bearer token with the `admin` role.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of loaded datasets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatasetInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/datasets/{name}:
+    parameters:
+      - $ref: '#/components/parameters/datasetName'
+
+    get:
+      summary: Get a single dataset's info
+      operationId: getDataset
+      tags: [Datasets]
+      description: Requires a bearer token with the `admin` role.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dataset info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Dataset not loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update editable dataset metadata
+      operationId: patchDataset
+      tags: [Datasets]
+      description: Requires a bearer token with the `admin` role.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetaPatch'
+            example:
+              author: jane
+              description: Primary content dataset
+              tags: [prod, blog]
+      responses:
+        '200':
+          description: Updated metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metadata'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Dataset not loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Dataset is legacy/unmigrated and cannot store metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/datasets/{name}/load:
+    parameters:
+      - $ref: '#/components/parameters/datasetName'
+
+    post:
+      summary: Load a dataset into memory
+      operationId: loadDataset
+      tags: [Datasets]
+      description: Requires a bearer token with the `admin` role.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dataset loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/datasets/{name}/unload:
+    parameters:
+      - $ref: '#/components/parameters/datasetName'
+
+    post:
+      summary: Unload a dataset from memory
+      operationId: unloadDataset
+      tags: [Datasets]
+      description: |
+        Requires a bearer token with the `admin` role. Drops the dataset from
+        memory; the on-disk files are left untouched.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Dataset unloaded (no body)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Dataset not loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -415,6 +625,15 @@ components:
       schema:
         type: integer
         example: 1
+
+    datasetName:
+      name: name
+      in: path
+      required: true
+      description: Name of the dataset
+      schema:
+        type: string
+        example: default
 
   schemas:
     FieldType:
@@ -534,6 +753,111 @@ components:
             type: integer
           example:
             post: 2
+
+    Metadata:
+      type: object
+      description: Editable and system metadata for a dataset
+      properties:
+        name:
+          type: string
+          example: default
+        author:
+          type: string
+          example: jane
+        description:
+          type: string
+          example: Primary content dataset
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-06-13T10:00:00Z"
+        modified_at:
+          type: string
+          format: date-time
+          example: "2026-06-19T12:30:00Z"
+        data_format_version:
+          type: integer
+          example: 2
+        schema_version:
+          type: integer
+          example: 1
+        tags:
+          type: array
+          items:
+            type: string
+          example: [prod, blog]
+
+    MetaPatch:
+      type: object
+      description: |
+        Editable metadata fields. All properties are optional; only the
+        provided fields are updated.
+      properties:
+        author:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        schema_version:
+          type: integer
+
+    MetricsReport:
+      type: object
+      description: Aggregated query metrics for a dataset
+      properties:
+        total_queries:
+          type: integer
+          description: Total number of queries recorded
+          example: 42
+        by_op:
+          type: object
+          description: |
+            Map of operation name (`list`, `get`, `create`, `update`,
+            `delete`, `filter`) → map of content-type name → timing stats.
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 10
+                avg_ms:
+                  type: number
+                  example: 0.42
+                total_ms:
+                  type: number
+                  example: 4.2
+          example:
+            list:
+              post:
+                count: 10
+                avg_ms: 0.42
+                total_ms: 4.2
+
+    DatasetInfo:
+      type: object
+      description: Full runtime info for a single dataset
+      properties:
+        name:
+          type: string
+          example: default
+        data_format_version:
+          type: integer
+          example: 2
+        meta:
+          $ref: '#/components/schemas/Metadata'
+        stats:
+          $ref: '#/components/schemas/DatasetStats'
+        approx_bytes:
+          type: integer
+          description: Estimated in-memory size of the dataset in bytes
+          example: 4096
+        metrics:
+          $ref: '#/components/schemas/MetricsReport'
 
     Error:
       type: object

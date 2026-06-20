@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/remisb/muxstack/middleware"
+	"github.com/remisb/protocms/internal/auth"
 )
 
 // jwtTTL is the lifetime of tokens issued by /api/login.
@@ -83,9 +84,12 @@ func hmacSHA256(secret []byte, data string) []byte {
 	return mac.Sum(nil)
 }
 
-// protect wraps a writing handler with authentication and a role check.
-func protectHandler(h http.HandlerFunc, authMiddleware middleware.Middleware, roles ...string) http.HandlerFunc {
-	return middleware.Chain(h, authMiddleware, middleware.Authorizer(roles...)).ServeHTTP
+// protect wraps a handler with authentication, dataset resolution, and a
+// role check. The chain is: Authenticator (validates the token + sets Claims)
+// -> WithDataset (resolves the credential's dataset into context) ->
+// Authorizer (role check) -> handler.
+func protectHandler(h http.HandlerFunc, cfg auth.Config, authMiddleware middleware.Middleware, roles ...string) http.HandlerFunc {
+	return middleware.Chain(h, authMiddleware, cfg.WithDataset, middleware.Authorizer(roles...)).ServeHTTP
 }
 
 //// loginHandler authenticates a username/password against PROTOCMS_USERS and

@@ -45,27 +45,37 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Modern routing with method + named wildcards (Go 1.22+)
-	// Reads are public; writes require a bearer token (API key or JWT).
-	mux.HandleFunc("GET /api/health", healthHandler)
-	mux.HandleFunc("GET /api/stats", statsHandler)
-	mux.HandleFunc("GET /api/metrics", metricsHandler)
-	mux.HandleFunc("GET /api/content-types", getContentTypesHandler)
-	mux.HandleFunc("POST /api/content-types", protectHandler(createContentTypeHandler, authn, "admin"))
+	rw := []string{"admin", "editor"} // read+write roles
 
-	// Auth
+	// Modern routing with method + named wildcards (Go 1.22+).
+	// All content/stats access now requires a bearer token; the dataset is
+	// resolved from the credential. Only health and login are public.
+	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("POST /api/login", loginHandler(authCfg))
-	mux.HandleFunc("GET /api/me", protectHandler(meHandler, authn, "admin", "editor"))
+
+	mux.HandleFunc("GET /api/stats", protectHandler(statsHandler, authCfg, authn, rw...))
+	mux.HandleFunc("GET /api/metrics", protectHandler(metricsHandler, authCfg, authn, rw...))
+	mux.HandleFunc("GET /api/me", protectHandler(meHandler, authCfg, authn, rw...))
+
+	mux.HandleFunc("GET /api/content-types", protectHandler(getContentTypesHandler, authCfg, authn, rw...))
+	mux.HandleFunc("POST /api/content-types", protectHandler(createContentTypeHandler, authCfg, authn, "admin"))
 
 	// Content routes with wildcards {contentType} and {id}
-	mux.HandleFunc("GET /api/content/{contentType}", listContentHandler)
-	mux.HandleFunc("GET /api/content/{contentType}/{id}", getSingleContentHandler)
-	mux.HandleFunc("POST /api/content/{contentType}", protectHandler(createContentHandler, authn, "admin", "editor"))
-	mux.HandleFunc("PUT /api/content/{contentType}/{id}", protectHandler(updateContentHandler, authn, "admin", "editor"))
-	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", protectHandler(deleteContentHandler, authn, "admin", "editor"))
+	mux.HandleFunc("GET /api/content/{contentType}", protectHandler(listContentHandler, authCfg, authn, rw...))
+	mux.HandleFunc("GET /api/content/{contentType}/{id}", protectHandler(getSingleContentHandler, authCfg, authn, rw...))
+	mux.HandleFunc("POST /api/content/{contentType}", protectHandler(createContentHandler, authCfg, authn, rw...))
+	mux.HandleFunc("PUT /api/content/{contentType}/{id}", protectHandler(updateContentHandler, authCfg, authn, rw...))
+	mux.HandleFunc("DELETE /api/content/{contentType}/{id}", protectHandler(deleteContentHandler, authCfg, authn, rw...))
+
+	// Dataset management (admin only)
+	mux.HandleFunc("GET /api/datasets", protectHandler(listDatasetsHandler, authCfg, authn, "admin"))
+	mux.HandleFunc("GET /api/datasets/{name}", protectHandler(getDatasetHandler, authCfg, authn, "admin"))
+	mux.HandleFunc("POST /api/datasets/{name}/load", protectHandler(loadDatasetHandler, authCfg, authn, "admin"))
+	mux.HandleFunc("POST /api/datasets/{name}/unload", protectHandler(unloadDatasetHandler, authCfg, authn, "admin"))
+	mux.HandleFunc("PATCH /api/datasets/{name}", protectHandler(patchDatasetHandler, authCfg, authn, "admin"))
 
 	// Uploads
-	mux.HandleFunc("POST /api/uploads", protectHandler(uploadHandler, authn, "admin", "editor"))
+	mux.HandleFunc("POST /api/uploads", protectHandler(uploadHandler, authCfg, authn, rw...))
 	mux.HandleFunc("GET /api/uploads/{name}", serveUploadHandler)
 
 	handler := middleware.Chain(
@@ -99,17 +109,22 @@ func main() {
 func printRoutes() {
 	routes := []string{
 		"GET    /api/health",
-		"GET    /api/stats",
-		"GET    /api/metrics",
-		"GET    /api/content-types",
-		"POST   /api/content-types              (auth: admin)",
 		"POST   /api/login",
+		"GET    /api/stats                       (auth: admin|editor)",
+		"GET    /api/metrics                     (auth: admin|editor)",
 		"GET    /api/me                          (auth: admin|editor)",
-		"GET    /api/content/{contentType}",
-		"GET    /api/content/{contentType}/{id}",
+		"GET    /api/content-types               (auth: admin|editor)",
+		"POST   /api/content-types              (auth: admin)",
+		"GET    /api/content/{contentType}       (auth: admin|editor)",
+		"GET    /api/content/{contentType}/{id}  (auth: admin|editor)",
 		"POST   /api/content/{contentType}       (auth: admin|editor)",
 		"PUT    /api/content/{contentType}/{id}  (auth: admin|editor)",
 		"DELETE /api/content/{contentType}/{id}  (auth: admin|editor)",
+		"GET    /api/datasets                    (auth: admin)",
+		"GET    /api/datasets/{name}             (auth: admin)",
+		"POST   /api/datasets/{name}/load        (auth: admin)",
+		"POST   /api/datasets/{name}/unload      (auth: admin)",
+		"PATCH  /api/datasets/{name}             (auth: admin)",
 		"POST   /api/uploads                     (auth: admin|editor)",
 		"GET    /api/uploads/{name}",
 	}
