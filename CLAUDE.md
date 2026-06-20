@@ -6,20 +6,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ProtoCMS is a prototype headless CMS written in Go 1.26 using only the standard library plus a small `muxstack` middleware module. State is held in memory and persisted to a single JSON file per dataset under `data/<dataset>.json`.
 
+## Layout
+
+The Go backend lives in `backend/` (its own module, `go.mod` there). A repo-root
+`go.work` workspace points at `./backend` so the commands below run from the repo
+root. The relative `data` directory is resolved from the working directory, so
+**run from the repo root** to keep using the repo-root `data/` folder.
+
 ## Commands
 
-```sh
-# Run with the default dataset (data/default.json)
-go run .
+All commands run from the repo root (the `go.work` workspace makes `./backend`
+resolvable):
 
-# Run against a named dataset (creates/loads data/<name>.json)
-go run . -dataset blog
+```sh
+# Run with the default dataset (data/default/)
+go run ./backend
+
+# Run against a named dataset (creates/loads data/<name>/)
+go run ./backend -dataset blog
 
 # Build the binary
-go build -o protocms .
+go build -o protocms ./backend
 
 # Tests (none defined yet — the repo currently has no _test.go files)
-go test ./...
+go test ./backend/...
 ```
 
 The server always listens on `:8080`. There is no config file or env-based port override.

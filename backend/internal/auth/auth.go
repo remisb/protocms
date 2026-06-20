@@ -52,7 +52,7 @@ func (c Config) HasUsers() bool { return len(c.users) > 0 }
 
 func (c Config) HasAPIKeys() bool { return len(c.apiKeys) > 0 }
 
-// Datasets returns the distinct set of datasets bound to the configured
+// Datasets return the distinct set of datasets bound to the configured
 // credentials (API keys and users), so they can be preloaded at startup.
 func (c Config) Datasets() []string {
 	seen := make(map[string]bool)
@@ -102,7 +102,7 @@ func (c UserCred) Role() string { return c.role }
 
 func (c UserCred) Dataset() string { return c.dataset }
 
-// LoadConfig reads PROTOCMS_API_KEYS, PROTOCMS_JWT_SECRET and
+// LoadConfig reads PROTOCMS_API_KEYS, PROTOCMS_JWT_SECRET, and
 // PROTOCMS_USERS from the environment. Misconfigured roles cause a hard exit,
 // so the operator finds out at startup rather than at request time.
 func LoadConfig() Config {

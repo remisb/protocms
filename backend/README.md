@@ -30,15 +30,19 @@ See [`CHANGELOG.md`](./CHANGELOG.md) for the full feature history and
 
 ### Backend
 
+The Go backend lives in `backend/` (its own module). A repo-root `go.work`
+workspace makes `./backend` resolvable, and the relative `data/` directory is
+read from the working directory — so **run these commands from the repo root**.
+
 ```sh
 # Default dataset (data/default/ or legacy data/default.json)
-go run .
+go run ./backend
 
 # A named dataset
-go run . -dataset blog
+go run ./backend -dataset blog
 
 # Build a binary instead
-go build -o protocms . && ./protocms -dataset blog
+go build -o protocms ./backend && ./protocms -dataset blog
 ```
 
 The server always listens on **`:8080`**. There is no config file or port
@@ -65,7 +69,7 @@ Example — an admin API key and a login user, both bound to the `menu` dataset:
 PROTOCMS_JWT_SECRET=dev-secret \
 PROTOCMS_API_KEYS="k-admin:admin:menu" \
 PROTOCMS_USERS="boss:adminpw:admin:menu" \
-go run . -dataset menu
+go run ./backend -dataset menu
 ```
 
 Then:
@@ -88,7 +92,7 @@ Convert a legacy flat-file dataset to the new `data/<name>/` layout. This never
 deletes the old file and refuses to overwrite an existing folder:
 
 ```sh
-go run . -migrate -dataset blog
+go run ./backend -migrate -dataset blog
 ```
 
 Uploads referenced by the dataset are moved into `data/blog/uploads/` and their
@@ -109,14 +113,14 @@ UI with a `PROTOCMS_USERS` account. Build the production bundle with
 
 ## Testing
 
-There are currently **no Go test files**; `go test ./...` is wired up and ready
-for new tests:
+There are currently **no Go test files**; `go test ./backend/...` is wired up and
+ready for new tests:
 
 ```sh
-go test ./...              # run all package tests
-go test ./... -run TestX   # a single test by name
-go test ./... -race        # with the race detector
-go vet ./...               # static checks
+go test ./backend/...              # run all package tests
+go test ./backend/... -run TestX   # a single test by name
+go test ./backend/... -race        # with the race detector
+go vet ./backend/...               # static checks
 gofmt -l .                 # list unformatted files
 ```
 
@@ -171,15 +175,15 @@ curl -s http://localhost:8080/api/metrics  -H "Authorization: Bearer $TOKEN" | j
 - **Delve.**
 
   ```sh
-  dlv debug . -- -dataset blog          # step through startup + handlers
-  dlv test ./store                       # debug a package's tests
+  dlv debug ./backend -- -dataset blog   # step through startup + handlers
+  dlv test ./backend/store               # debug a package's tests
   ```
 
 - **Verbose Go build / vet output.**
 
   ```sh
-  go build -v ./...
-  go vet ./...
+  go build -v ./backend/...
+  go vet ./backend/...
   ```
 
 - **Frontend.** Use the browser devtools network tab against the Vite dev
