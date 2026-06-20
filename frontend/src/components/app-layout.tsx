@@ -14,7 +14,7 @@ import {
 import { EditorSidebar } from "@/components/editor-sidebar";
 
 export function AppLayout() {
-  const { user, role, isAdmin, logout } = useAuth();
+  const { user, role, dataset, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [stats, setStats] = useState<DatasetStats | null>(null);
@@ -48,7 +48,7 @@ export function AppLayout() {
         types={types ?? []}
         active={activeType}
         counts={stats?.items_per_type}
-        dataset={stats?.dataset}
+        dataset={dataset ?? stats?.dataset}
         subject={user?.subject}
         role={role}
         isAdmin={isAdmin}

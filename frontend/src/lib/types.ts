@@ -47,4 +47,44 @@ export interface LoginResponse {
 export interface Me {
   subject: string;
   roles: string[];
+  dataset: string;
+}
+
+export interface DatasetMeta {
+  name: string;
+  author: string;
+  description: string;
+  created_at: string;
+  modified_at: string;
+  data_format_version: number;
+  schema_version: number;
+  tags: string[];
+}
+
+export interface OpStat {
+  count: number;
+  avg_ms: number;
+  total_ms: number;
+}
+
+export interface DatasetMetrics {
+  total_queries: number;
+  // op -> contentType -> stat
+  by_op: Record<string, Record<string, OpStat>>;
+}
+
+export interface DatasetInfo {
+  name: string;
+  data_format_version: number;
+  meta: DatasetMeta;
+  stats: DatasetStats;
+  approx_bytes: number;
+  metrics: DatasetMetrics;
+}
+
+export interface DatasetMetaPatch {
+  author?: string;
+  description?: string;
+  tags?: string[];
+  schema_version?: number;
 }
