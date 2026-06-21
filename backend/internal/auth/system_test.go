@@ -103,6 +103,23 @@ func TestGetUserSystemFallback(t *testing.T) {
 	}
 }
 
+func TestHasAdminAPIKey(t *testing.T) {
+	t.Setenv("PROTOCMS_API_KEYS", "ek:editor:blog")
+	cfg := LoadConfig()
+	if cfg.HasAdminAPIKey() {
+		t.Fatal("editor-only env key reported as admin; bootstrap guard would be suppressed")
+	}
+	if !cfg.HasAPIKeys() {
+		t.Fatal("HasAPIKeys should be true for an editor key")
+	}
+
+	t.Setenv("PROTOCMS_API_KEYS", "ek:editor:blog,ak:admin:default")
+	cfg = LoadConfig()
+	if !cfg.HasAdminAPIKey() {
+		t.Fatal("admin env key not detected")
+	}
+}
+
 func TestDatasetsIncludesSystem(t *testing.T) {
 	t.Setenv("PROTOCMS_API_KEYS", "tok:admin:envds")
 	cfg := LoadConfig()

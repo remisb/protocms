@@ -33,8 +33,8 @@ func syncSystemCredentials(cfg auth.Config) {
 
 	users := make(map[string]auth.SystemUserCred)
 	for _, u := range sys.Users() {
-		if u.Status != "" && u.Status != "active" {
-			continue
+		if !u.Active() {
+			continue // only active users may authenticate (see SystemUser.Active)
 		}
 		users[u.Username] = auth.SystemUserCred{
 			PasswordHash: u.PasswordHash,
@@ -51,8 +51,10 @@ func syncSystemCredentials(cfg auth.Config) {
 // _system. Because env overrides _system, an env admin key is always a usable
 // escape hatch; this only flags the lockout case so the operator notices.
 func bootstrapGuard(cfg auth.Config) {
-	if cfg.HasAPIKeys() {
-		return // an env API key (admin or not) at least proves env auth works
+	// Only an admin credential can reach the admin-only /api/system routes, so
+	// an editor-only env key must not suppress the warning.
+	if cfg.HasAdminAPIKey() {
+		return
 	}
 	if store.DefaultRegistry().System().HasAdmin() {
 		return
@@ -92,6 +94,10 @@ func systemUsersHandler(cfg auth.Config) http.HandlerFunc {
 			ds := req.Dataset
 			if ds == "" {
 				ds = "default"
+			}
+			if store.ReservedDatasetName(ds) {
+				http.Error(w, `{"error":"cannot bind a credential to a reserved dataset"}`, http.StatusBadRequest)
+				return
 			}
 			u, err := sys.CreateUser(req.Username, req.Password, req.Role, ds)
 			if err == store.ErrUserExists {
@@ -150,6 +156,10 @@ func systemKeysHandler(cfg auth.Config) http.HandlerFunc {
 			ds := req.Dataset
 			if ds == "" {
 				ds = "default"
+			}
+			if store.ReservedDatasetName(ds) {
+				http.Error(w, `{"error":"cannot bind a credential to a reserved dataset"}`, http.StatusBadRequest)
+				return
 			}
 			k, plaintext, err := sys.CreateKey(req.Name, req.Role, ds)
 			if err != nil {

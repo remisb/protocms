@@ -51,6 +51,16 @@ type SystemUser struct {
 	UpdatedAt    string `json:"updated_at"`
 }
 
+// UserStatusActive is the only status value that lets a user authenticate.
+// Any other value (including an empty/unset status) is treated as inactive, so
+// clearing the status disables the user.
+const UserStatusActive = "active"
+
+// Active reports whether the user may authenticate. It is the single source of
+// truth shared by the auth-credential sync and the bootstrap guard, so they
+// cannot disagree about which users count.
+func (u SystemUser) Active() bool { return u.Status == UserStatusActive }
+
 // SystemKey is a persisted API key record in the _system dataset. Only a
 // salted hash of the key is stored; the plaintext is shown once at creation.
 type SystemKey struct {
@@ -130,7 +140,7 @@ func (s *SystemStore) CreateUser(username, password, role, dataset string) (Syst
 		PasswordHash: hash,
 		Role:         role,
 		Dataset:      dataset,
-		Status:       "active",
+		Status:       UserStatusActive,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -228,7 +238,7 @@ func (s *SystemStore) RevokeKey(id int) bool {
 // admin role. Used by the startup bootstrap guard.
 func (s *SystemStore) HasAdmin() bool {
 	for _, u := range s.Users() {
-		if u.Role == "admin" {
+		if u.Role == "admin" && u.Active() {
 			return true
 		}
 	}

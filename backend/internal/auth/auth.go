@@ -54,6 +54,19 @@ func (c Config) HasUsers() bool { return len(c.users) > 0 }
 
 func (c Config) HasAPIKeys() bool { return len(c.apiKeys) > 0 }
 
+// HasAdminAPIKey reports whether any env-configured API key grants the admin
+// role. The bootstrap guard uses this rather than HasAPIKeys: an editor-only
+// env key cannot reach the admin-only /api/system routes, so it must not
+// suppress the lockout warning.
+func (c Config) HasAdminAPIKey() bool {
+	for _, kc := range c.apiKeys {
+		if kc.role == "admin" {
+			return true
+		}
+	}
+	return false
+}
+
 // Datasets return the distinct set of datasets bound to the configured
 // credentials (API keys and users), so they can be preloaded at startup.
 func (c Config) Datasets() []string {

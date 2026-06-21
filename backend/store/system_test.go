@@ -154,3 +154,47 @@ func TestSystemStoreHasAdmin(t *testing.T) {
 		t.Fatal("_system with an admin user reports none")
 	}
 }
+
+func TestSystemUserActive(t *testing.T) {
+	cases := map[string]bool{
+		"active":   true,
+		"":         false, // unset disables the user
+		"disabled": false,
+		"ACTIVE":   false, // exact match only
+	}
+	for status, want := range cases {
+		if got := (SystemUser{Status: status}).Active(); got != want {
+			t.Errorf("Active() for status %q = %v, want %v", status, got, want)
+		}
+	}
+}
+
+func TestHasAdminIgnoresInactiveAdmin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	reg := NewRegistry()
+	sys := reg.System()
+
+	u, err := sys.CreateUser("adm", "pw", "admin", "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sys.HasAdmin() {
+		t.Fatal("active admin not counted")
+	}
+
+	// Disable the sole admin by clearing its status, then re-persist.
+	users := decodeUsers(sys.d.content[systemUsersCollection])
+	for i := range users {
+		if users[i].ID == u.ID {
+			users[i].Status = "disabled"
+		}
+	}
+	sys.d.mu.Lock()
+	sys.d.content[systemUsersCollection] = encodeUsers(users)
+	sys.d.persistLocked()
+	sys.d.mu.Unlock()
+
+	if sys.HasAdmin() {
+		t.Fatal("HasAdmin counted a disabled admin; bootstrap guard would stay silent during a lockout")
+	}
+}
