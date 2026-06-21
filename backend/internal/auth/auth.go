@@ -41,11 +41,13 @@ type keyCred struct {
 	dataset string
 }
 
-// Config holds the credential material loaded from the environment.
+// Config holds the credential material. Env-derived credentials (apiKeys,
+// users) take precedence over the _system layer; see system.go.
 type Config struct {
-	apiKeys   map[string]keyCred // token -> role + dataset
+	apiKeys   map[string]keyCred // token -> role + dataset (from env)
 	users     map[string]UserCred
-	jwtSecret []byte // nil if JWT auth is disabled
+	jwtSecret []byte       // nil if JWT auth is disabled
+	system    *systemLayer // credentials merged in from the _system dataset
 }
 
 func (c Config) HasUsers() bool { return len(c.users) > 0 }
@@ -69,6 +71,16 @@ func (c Config) Datasets() []string {
 	for _, u := range c.users {
 		add(u.dataset)
 	}
+	if c.system != nil {
+		c.system.mu.RLock()
+		for _, k := range c.system.keys {
+			add(k.Dataset)
+		}
+		for _, u := range c.system.users {
+			add(u.Dataset)
+		}
+		c.system.mu.RUnlock()
+	}
 	return out
 }
 
@@ -85,11 +97,20 @@ func (c Config) IsJWTAuthDisabled() bool {
 }
 
 func (c Config) GetUser(userName string, password string) (UserCred, error) {
-	user, ok := c.users[userName]
-	if !ok || user.password != password {
+	// Env users (plaintext password) win over _system users.
+	if user, ok := c.users[userName]; ok {
+		if user.password == password {
+			return user, nil
+		}
 		return UserCred{}, ErrInvalidCredentials
 	}
-	return user, nil
+	// Fall back to a _system user, whose password is stored hashed.
+	if su, ok := c.systemUser(userName); ok {
+		if su.Verify != nil && su.Verify(su.PasswordHash, password) {
+			return UserCred{role: su.Role, dataset: su.Dataset}, nil
+		}
+	}
+	return UserCred{}, ErrInvalidCredentials
 }
 
 type UserCred struct {
@@ -109,6 +130,7 @@ func LoadConfig() Config {
 	cfg := Config{
 		apiKeys: make(map[string]keyCred),
 		users:   make(map[string]UserCred),
+		system:  &systemLayer{users: make(map[string]SystemUserCred)},
 	}
 
 	// PROTOCMS_API_KEYS: "key:role[:dataset],..." (dataset optional, defaults
@@ -169,8 +191,12 @@ func LoadConfig() Config {
 // API key or an HS256 JWT signed with the configured secret.
 func NewVerifier(cfg Config) middleware.TokenVerifier {
 	return func(_ context.Context, token string) (*middleware.Claims, error) {
+		// Env API keys win over _system keys.
 		if kc, ok := cfg.apiKeys[token]; ok {
 			return &middleware.Claims{Subject: "apikey", Roles: []string{kc.role}}, nil
+		}
+		if role, _, ok := cfg.resolveSystemKey(token); ok {
+			return &middleware.Claims{Subject: "apikey", Roles: []string{role}}, nil
 		}
 		if cfg.jwtSecret != nil {
 			sub, role, _, err := verifyJWT(cfg.jwtSecret, token)
@@ -239,6 +265,9 @@ func verifyJWT(secret []byte, token string) (sub, role, dataset string, err erro
 func (c Config) ResolveDataset(token string) (string, bool) {
 	if kc, ok := c.apiKeys[token]; ok {
 		return kc.dataset, true
+	}
+	if _, ds, ok := c.resolveSystemKey(token); ok {
+		return ds, true
 	}
 	if c.jwtSecret != nil {
 		if _, _, ds, err := verifyJWT(c.jwtSecret, token); err == nil {

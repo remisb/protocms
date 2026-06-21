@@ -29,12 +29,20 @@ func main() {
 	store.Load(*dataset)
 
 	authCfg := auth.LoadConfig()
+
+	// The _system dataset is the source of truth for users and API keys; it is
+	// always loaded. Push its records into the auth config (env still wins),
+	// then warn if no admin credential exists anywhere.
+	reg := store.DefaultRegistry()
+	reg.System() // ensures _system is loaded
+	syncSystemCredentials(authCfg)
+	bootstrapGuard(authCfg)
+
 	authn := middleware.Authenticator(auth.NewVerifier(authCfg))
 
 	// Preload every dataset referenced by a configured credential, so the
 	// first request for each doesn't pay the load cost. The -dataset default
 	// is already loaded above; the registry skips datasets already in memory.
-	reg := store.DefaultRegistry()
 	for _, ds := range authCfg.Datasets() {
 		if _, ok := reg.Get(ds); ok {
 			continue
@@ -73,6 +81,15 @@ func main() {
 	mux.HandleFunc("POST /api/datasets/{name}/load", protectHandler(loadDatasetHandler, authCfg, authn, "admin"))
 	mux.HandleFunc("POST /api/datasets/{name}/unload", protectHandler(unloadDatasetHandler, authCfg, authn, "admin"))
 	mux.HandleFunc("PATCH /api/datasets/{name}", protectHandler(patchDatasetHandler, authCfg, authn, "admin"))
+
+	// System store management (admin only). The only door into the reserved
+	// _system dataset; users + API keys live here.
+	mux.HandleFunc("GET /api/system/users", protectHandler(systemUsersHandler(authCfg), authCfg, authn, "admin"))
+	mux.HandleFunc("POST /api/system/users", protectHandler(systemUsersHandler(authCfg), authCfg, authn, "admin"))
+	mux.HandleFunc("DELETE /api/system/users/{id}", protectHandler(deleteSystemUserHandler(authCfg), authCfg, authn, "admin"))
+	mux.HandleFunc("GET /api/system/keys", protectHandler(systemKeysHandler(authCfg), authCfg, authn, "admin"))
+	mux.HandleFunc("POST /api/system/keys", protectHandler(systemKeysHandler(authCfg), authCfg, authn, "admin"))
+	mux.HandleFunc("DELETE /api/system/keys/{id}", protectHandler(deleteSystemKeyHandler(authCfg), authCfg, authn, "admin"))
 
 	// Uploads (per-dataset). POST resolves the dataset from the credential;
 	// GET is public with the dataset in the path so plain <img> tags load.
@@ -143,6 +160,12 @@ func printRoutes() {
 		"POST   /api/datasets/{name}/load        (auth: admin)",
 		"POST   /api/datasets/{name}/unload      (auth: admin)",
 		"PATCH  /api/datasets/{name}             (auth: admin)",
+		"GET    /api/system/users                (auth: admin)",
+		"POST   /api/system/users               (auth: admin)",
+		"DELETE /api/system/users/{id}           (auth: admin)",
+		"GET    /api/system/keys                 (auth: admin)",
+		"POST   /api/system/keys                (auth: admin)",
+		"DELETE /api/system/keys/{id}            (auth: admin)",
 		"POST   /api/uploads                     (auth: admin|editor)",
 		"GET    /api/uploads/{dataset}/{name}",
 	}
