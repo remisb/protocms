@@ -187,6 +187,22 @@ func TestRecordRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDecodeRecordsSkipsMalformed(t *testing.T) {
+	// A record whose typed field has the wrong JSON shape (id as a string)
+	// must be skipped, not abort the whole decode; the good record survives.
+	items := []ContentItem{
+		{"id": "not-a-number", "name": "bad"},
+		{"id": 5, "name": "good", "role": "editor"},
+	}
+	out := decodeKeys(items)
+	if len(out) != 1 {
+		t.Fatalf("got %d keys, want 1 (malformed record should be skipped)", len(out))
+	}
+	if out[0].Name != "good" || out[0].ID != 5 {
+		t.Fatalf("surviving record wrong: %+v", out[0])
+	}
+}
+
 func TestSystemUserActive(t *testing.T) {
 	cases := map[string]bool{
 		"active":   true,

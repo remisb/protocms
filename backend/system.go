@@ -199,7 +199,6 @@ func deleteSystemKeyHandler(cfg auth.Config) http.HandlerFunc {
 	}
 }
 
-
 // redactUser strips the password hash from a user record before it leaves the
 // API. The hash never needs to be exposed.
 func redactUser(u store.SystemUser) map[string]any {

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -299,9 +300,13 @@ func generateAPIKey() (string, error) {
 // and that representation — no per-field, per-type mapping to keep in sync.
 
 func encodeUsers(users []SystemUser) []ContentItem { return encodeRecords(users) }
-func decodeUsers(items []ContentItem) []SystemUser { return decodeRecords[SystemUser](items) }
-func encodeKeys(keys []SystemKey) []ContentItem    { return encodeRecords(keys) }
-func decodeKeys(items []ContentItem) []SystemKey   { return decodeRecords[SystemKey](items) }
+func decodeUsers(items []ContentItem) []SystemUser {
+	return decodeRecords[SystemUser](items, systemUsersCollection)
+}
+func encodeKeys(keys []SystemKey) []ContentItem { return encodeRecords(keys) }
+func decodeKeys(items []ContentItem) []SystemKey {
+	return decodeRecords[SystemKey](items, systemKeysCollection)
+}
 
 // encodeRecord marshals a single typed record into a ContentItem map via its
 // json tags. It returns an empty item if the record cannot be marshaled (it
@@ -331,16 +336,23 @@ func encodeRecords[T any](records []T) []ContentItem {
 
 // decodeRecords unmarshals ContentItem maps back into typed records. Numbers
 // that arrived as float64 from a JSON load are coerced into the struct's
-// declared field types by the stdlib decoder. A malformed item is skipped.
-func decodeRecords[T any](items []ContentItem) []T {
+// declared field types by the stdlib decoder. A malformed item is skipped and
+// logged with its collection so an operator can spot a corrupted or
+// hand-edited record (records written by encodeRecord always decode cleanly,
+// so a skip means the on-disk data diverged from the schema).
+func decodeRecords[T any](items []ContentItem, collection string) []T {
 	out := make([]T, 0, len(items))
-	for _, it := range items {
+	for i, it := range items {
 		b, err := json.Marshal(it)
 		if err != nil {
+			slog.Warn("skipping unencodable system record",
+				"collection", collection, "index", i, "err", err)
 			continue
 		}
 		var r T
 		if err := json.Unmarshal(b, &r); err != nil {
+			slog.Warn("skipping malformed system record",
+				"collection", collection, "index", i, "err", err)
 			continue
 		}
 		out = append(out, r)
