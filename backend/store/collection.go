@@ -26,7 +26,8 @@ func (d *Dataset) CollectionItems(collection string) []ContentItem {
 // items; if it returns an error the append is aborted (e.g. a uniqueness
 // check), so the check and the insert cannot race. makeItem receives the
 // dataset's next id to stamp into the record. The stored item is returned on
-// success.
+// success. Both callbacks run under the write lock, so neither may call back
+// into a locking Dataset method (it would self-deadlock; see MutateCollection).
 func (d *Dataset) AppendCollectionItem(
 	collection string,
 	precondition func(items []ContentItem) error,
@@ -50,8 +51,22 @@ func (d *Dataset) AppendCollectionItem(
 // mutate receives the current items and returns the new slice plus a changed
 // flag; the whole operation holds the write lock, so concurrent mutations
 // cannot interleave (no lost updates). State is persisted only when changed is
-// true. The bool mutate ultimately reports (e.g. "found and updated") is
-// returned to the caller.
+// true; the returned changed flag is passed back to the caller.
+//
+// Two rules for the mutate callback:
+//
+//   - It must NOT mutate the passed-in items in place and then return
+//     changed=false. The slice (and the ContentItem maps it holds, which are
+//     reference types) is the live stored state, so an in-place edit takes
+//     effect in memory immediately — but with changed=false it is never
+//     persisted, leaving memory and disk diverged. To edit in place, build a
+//     new slice (e.g. decode -> modify copies -> re-encode, as the system
+//     store does) and return changed=true. Returning the original slice
+//     unchanged with changed=false is the only safe no-op.
+//   - It must NOT call back into any Dataset method that locks (CollectionItems,
+//     AppendCollectionItem, the SystemStore accessors, etc.). The callback
+//     already runs under d.mu's write lock, and sync.RWMutex is not reentrant,
+//     so doing so self-deadlocks. Operate only on the passed-in items.
 func (d *Dataset) MutateCollection(collection string, mutate func(items []ContentItem) (next []ContentItem, changed bool)) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
