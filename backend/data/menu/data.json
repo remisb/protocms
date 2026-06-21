@@ -1,0 +1,307 @@
+{
+  "next_id": 31,
+  "schemas": {
+    "category": {
+      "name": "category",
+      "fields": {
+        "description": {
+          "type": "textarea"
+        },
+        "name": {
+          "type": "text",
+          "required": true
+        }
+      }
+    },
+    "dish": {
+      "name": "dish",
+      "fields": {
+        "allergens": {
+          "type": "text"
+        },
+        "category_id": {
+          "type": "number"
+        },
+        "description": {
+          "type": "textarea"
+        },
+        "name": {
+          "type": "text",
+          "required": true
+        },
+        "price": {
+          "type": "number",
+          "required": true
+        },
+        "vegetarian": {
+          "type": "boolean"
+        }
+      }
+    },
+    "drink": {
+      "name": "drink",
+      "fields": {
+        "category": {
+          "type": "text"
+        },
+        "name": {
+          "type": "text",
+          "required": true
+        },
+        "price": {
+          "type": "number",
+          "required": true
+        },
+        "size_ml": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "content": {
+    "category": [
+      {
+        "description": "Light bites and appetisers to begin your meal.",
+        "id": 1,
+        "name": "Starters"
+      },
+      {
+        "description": "Hearty main courses.",
+        "id": 2,
+        "name": "Mains"
+      },
+      {
+        "description": "Freshly made pasta dishes.",
+        "id": 3,
+        "name": "Pasta"
+      },
+      {
+        "description": "Stone-baked pizzas.",
+        "id": 4,
+        "name": "Pizza"
+      },
+      {
+        "description": "Sweet endings.",
+        "id": 5,
+        "name": "Desserts"
+      }
+    ],
+    "dish": [
+      {
+        "allergens": "gluten",
+        "category_id": 1,
+        "description": "Toasted bread with tomatoes, garlic and basil.",
+        "id": 6,
+        "name": "Bruschetta",
+        "price": 6.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "dairy,gluten",
+        "category_id": 1,
+        "description": "Ask your server for today's soup.",
+        "id": 7,
+        "name": "Soup of the Day",
+        "price": 7,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,egg",
+        "category_id": 1,
+        "description": "Crispy fried squid served with aioli.",
+        "id": 8,
+        "name": "Calamari",
+        "price": 9,
+        "vegetarian": false
+      },
+      {
+        "allergens": "dairy",
+        "category_id": 1,
+        "description": "Creamy burrata with heritage tomatoes and basil oil.",
+        "id": 9,
+        "name": "Burrata",
+        "price": 10.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "fish",
+        "category_id": 2,
+        "description": "Atlantic salmon fillet with seasonal vegetables.",
+        "id": 10,
+        "name": "Grilled Salmon",
+        "price": 18.5,
+        "vegetarian": false
+      },
+      {
+        "allergens": "dairy,gluten",
+        "category_id": 2,
+        "description": "250g ribeye with peppercorn sauce and fries.",
+        "id": 11,
+        "name": "Ribeye Steak",
+        "price": 27,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,egg",
+        "category_id": 2,
+        "description": "Breaded chicken breast with rocket and cherry tomatoes.",
+        "id": 12,
+        "name": "Chicken Milanese",
+        "price": 16,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,dairy",
+        "category_id": 2,
+        "description": "Porcini and chestnut mushroom Wellington with red wine jus.",
+        "id": 13,
+        "name": "Mushroom Wellington",
+        "price": 15.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "gluten,egg,dairy",
+        "category_id": 3,
+        "description": "Spaghetti, guanciale, egg yolk, Pecorino Romano.",
+        "id": 14,
+        "name": "Spaghetti Carbonara",
+        "price": 13.5,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,egg",
+        "category_id": 3,
+        "description": "Slow-cooked beef ragù with fresh pappardelle.",
+        "id": 15,
+        "name": "Pappardelle al Ragù",
+        "price": 14.5,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,dairy",
+        "category_id": 3,
+        "description": "Tonnarelli pasta, Pecorino, black pepper.",
+        "id": 16,
+        "name": "Cacio e Pepe",
+        "price": 12.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "gluten,shellfish",
+        "category_id": 3,
+        "description": "Linguine with clams, white wine, garlic and parsley.",
+        "id": 17,
+        "name": "Linguine alle Vongole",
+        "price": 15,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,dairy",
+        "category_id": 4,
+        "description": "San Marzano tomato, fior di latte, fresh basil.",
+        "id": 18,
+        "name": "Margherita",
+        "price": 11,
+        "vegetarian": true
+      },
+      {
+        "allergens": "gluten,dairy",
+        "category_id": 4,
+        "description": "Spicy salami, tomato, mozzarella and chilli oil.",
+        "id": 19,
+        "name": "Diavola",
+        "price": 13,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,dairy",
+        "category_id": 4,
+        "description": "Mozzarella, Gorgonzola, Taleggio and Parmigiano.",
+        "id": 20,
+        "name": "Quattro Formaggi",
+        "price": 13.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "gluten,dairy",
+        "category_id": 4,
+        "description": "Parma ham, rocket, cherry tomatoes and Parmigiano shavings.",
+        "id": 21,
+        "name": "Prosciutto e Rucola",
+        "price": 14,
+        "vegetarian": false
+      },
+      {
+        "allergens": "gluten,egg,dairy",
+        "category_id": 5,
+        "description": "Classic espresso-soaked ladyfingers with mascarpone cream.",
+        "id": 22,
+        "name": "Tiramisu",
+        "price": 7.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "dairy",
+        "category_id": 5,
+        "description": "Vanilla panna cotta with mixed berry compote.",
+        "id": 23,
+        "name": "Panna Cotta",
+        "price": 6.5,
+        "vegetarian": true
+      },
+      {
+        "allergens": "gluten,egg,dairy",
+        "category_id": 5,
+        "description": "Warm dark chocolate fondant with vanilla gelato.",
+        "id": 24,
+        "name": "Chocolate Fondant",
+        "price": 8,
+        "vegetarian": true
+      }
+    ],
+    "drink": [
+      {
+        "category": "soft",
+        "id": 25,
+        "name": "Still Water",
+        "price": 2.5,
+        "size_ml": 500
+      },
+      {
+        "category": "soft",
+        "id": 26,
+        "name": "Sparkling Water",
+        "price": 2.5,
+        "size_ml": 500
+      },
+      {
+        "category": "soft",
+        "id": 27,
+        "name": "Fresh Orange Juice",
+        "price": 3.5,
+        "size_ml": 250
+      },
+      {
+        "category": "wine",
+        "id": 28,
+        "name": "House Red Wine",
+        "price": 6,
+        "size_ml": 175
+      },
+      {
+        "category": "wine",
+        "id": 29,
+        "name": "House White Wine",
+        "price": 6,
+        "size_ml": 175
+      },
+      {
+        "category": "beer",
+        "id": 30,
+        "name": "Peroni Nastro Azzurro",
+        "price": 4.5,
+        "size_ml": 330
+      }
+    ]
+  }
+}
