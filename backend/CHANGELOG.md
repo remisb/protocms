@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### System data store (`_system`)
+
+Added a reserved `_system` dataset that is the source of truth for user
+accounts and API keys, with the environment-variable credentials demoted to a
+debug/testing override. Internal-only and always loaded at startup.
+
+#### Added
+
+- **`_system` dataset.** A reserved dataset (stored like any other at
+  `data/_system/{data.json,meta.json}`) holding two collections — `users` and
+  `apikeys`. It is always loaded at startup.
+- **Credentials in `_system`, env as override.** `_system` users and keys are
+  the primary credential store; `PROTOCMS_API_KEYS` / `PROTOCMS_USERS` still
+  work and **win on conflict** (env-over-`_system`), so they remain a usable
+  debug/testing escape hatch. The merged credential set is rebuilt on every
+  `_system` write, so changes take effect in-process without a restart.
+- **Hashed at rest.** API keys and user passwords are stored as salted SHA-256
+  hashes; a new key's plaintext is returned exactly once at creation and never
+  persisted. Hashes are never exposed through the API.
+- **Admin-only management API** (admin only):
+  - `GET` / `POST /api/system/users`, `DELETE /api/system/users/{id}`.
+  - `GET` / `POST /api/system/keys` (POST returns the one-time plaintext key),
+    `DELETE /api/system/keys/{id}` (revokes; the record is retained).
+- **Internal-only isolation.** Dataset names with a `_` prefix are reserved:
+  the tenant content API rejects any credential bound to one, and the
+  credential-management handlers refuse to create a credential bound to a
+  reserved dataset. `/api/system/*` is the only door into `_system`.
+- **Bootstrap guard.** At startup, if no admin credential exists in either an
+  env API key or `_system`, a warning is logged (env always overrides
+  `_system`, so an env admin key is a guaranteed way in).
+- **`openapi.yaml`** documents the `/api/system/*` routes and their schemas.
+
+#### Notes
+
+- A `_system` user authenticates via `POST /api/login` like any user; the
+  issued JWT carries the user's bound dataset in its `ds` claim.
+- A malformed/hand-edited `_system` record that fails to decode is skipped with
+  a logged warning rather than dropped silently.
+
 ### Data store redesign
 
 Reworked the data store from a single process-global dataset into a registry
