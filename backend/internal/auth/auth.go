@@ -18,6 +18,11 @@ import (
 // validRoles is the hard-coded set of roles ProtoCMS understands.
 var validRoles = map[string]bool{"admin": true, "editor": true}
 
+// ValidRole reports whether role is one ProtoCMS understands. It is the single
+// source of truth for the role set, shared by config parsing and the
+// credential-management handlers.
+func ValidRole(role string) bool { return validRoles[role] }
+
 // defaultDataset is the dataset bound to a credential when its config entry
 // omits the optional dataset segment.
 const defaultDataset = "default"

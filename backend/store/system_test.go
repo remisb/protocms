@@ -1,6 +1,9 @@
 package store
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestHashSecretRoundTrip(t *testing.T) {
 	hash, err := HashSecret("hunter2")
@@ -152,6 +155,35 @@ func TestSystemStoreHasAdmin(t *testing.T) {
 	}
 	if !sys.HasAdmin() {
 		t.Fatal("_system with an admin user reports none")
+	}
+}
+
+func TestRecordRoundTrip(t *testing.T) {
+	// encode -> ContentItem (as persisted) -> decode must preserve all fields,
+	// including ints that come back as float64 after a JSON load.
+	in := []SystemKey{{
+		ID: 7, Name: "ci", Prefix: "pck_dead", Hash: "salt$hash",
+		Role: "editor", Dataset: "blog", CreatedAt: "2026-01-01T00:00:00Z",
+		RevokedAt: "2026-02-01T00:00:00Z",
+	}}
+	items := encodeKeys(in)
+
+	// Simulate a disk round-trip so numeric fields arrive as float64.
+	blob, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var loaded []ContentItem
+	if err := json.Unmarshal(blob, &loaded); err != nil {
+		t.Fatal(err)
+	}
+
+	out := decodeKeys(loaded)
+	if len(out) != 1 {
+		t.Fatalf("got %d keys, want 1", len(out))
+	}
+	if out[0] != in[0] {
+		t.Fatalf("round-trip mismatch:\n got %+v\nwant %+v", out[0], in[0])
 	}
 }
 

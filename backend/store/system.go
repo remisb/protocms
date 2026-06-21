@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -296,100 +296,49 @@ func generateAPIKey() (string, error) {
 // --- Collection (de)serialization ---------------------------------------
 //
 // Records live in the dataset content map as []ContentItem (map[string]any),
-// so they round-trip through the same JSON persistence as content. These
-// helpers convert between the typed structs and that representation.
+// so they round-trip through the same JSON persistence as content. The typed
+// structs carry json tags, so a single JSON round-trip converts between them
+// and that representation — no per-field, per-type mapping to keep in sync.
 
-func encodeUsers(users []SystemUser) []ContentItem {
-	out := make([]ContentItem, 0, len(users))
-	for _, u := range users {
-		out = append(out, ContentItem{
-			"id":            u.ID,
-			"username":      u.Username,
-			"password_hash": u.PasswordHash,
-			"role":          u.Role,
-			"dataset":       u.Dataset,
-			"status":        u.Status,
-			"created_at":    u.CreatedAt,
-			"updated_at":    u.UpdatedAt,
-		})
+func encodeUsers(users []SystemUser) []ContentItem { return encodeRecords(users) }
+func decodeUsers(items []ContentItem) []SystemUser { return decodeRecords[SystemUser](items) }
+func encodeKeys(keys []SystemKey) []ContentItem    { return encodeRecords(keys) }
+func decodeKeys(items []ContentItem) []SystemKey   { return decodeRecords[SystemKey](items) }
+
+// encodeRecords marshals typed records into ContentItem maps via their json
+// tags. A record that fails to marshal is skipped (it cannot happen for the
+// plain string/int structs used here).
+func encodeRecords[T any](records []T) []ContentItem {
+	out := make([]ContentItem, 0, len(records))
+	for _, r := range records {
+		b, err := json.Marshal(r)
+		if err != nil {
+			continue
+		}
+		var item ContentItem
+		if err := json.Unmarshal(b, &item); err != nil {
+			continue
+		}
+		out = append(out, item)
 	}
 	return out
 }
 
-func decodeUsers(items []ContentItem) []SystemUser {
-	out := make([]SystemUser, 0, len(items))
+// decodeRecords unmarshals ContentItem maps back into typed records. Numbers
+// that arrived as float64 from a JSON load are coerced into the struct's
+// declared field types by the stdlib decoder. A malformed item is skipped.
+func decodeRecords[T any](items []ContentItem) []T {
+	out := make([]T, 0, len(items))
 	for _, it := range items {
-		out = append(out, SystemUser{
-			ID:           toInt(it["id"]),
-			Username:     toStr(it["username"]),
-			PasswordHash: toStr(it["password_hash"]),
-			Role:         toStr(it["role"]),
-			Dataset:      toStr(it["dataset"]),
-			Status:       toStr(it["status"]),
-			CreatedAt:    toStr(it["created_at"]),
-			UpdatedAt:    toStr(it["updated_at"]),
-		})
+		b, err := json.Marshal(it)
+		if err != nil {
+			continue
+		}
+		var r T
+		if err := json.Unmarshal(b, &r); err != nil {
+			continue
+		}
+		out = append(out, r)
 	}
 	return out
-}
-
-func encodeKeys(keys []SystemKey) []ContentItem {
-	out := make([]ContentItem, 0, len(keys))
-	for _, k := range keys {
-		out = append(out, ContentItem{
-			"id":           k.ID,
-			"name":         k.Name,
-			"prefix":       k.Prefix,
-			"hash":         k.Hash,
-			"role":         k.Role,
-			"dataset":      k.Dataset,
-			"created_at":   k.CreatedAt,
-			"last_used_at": k.LastUsedAt,
-			"revoked_at":   k.RevokedAt,
-		})
-	}
-	return out
-}
-
-func decodeKeys(items []ContentItem) []SystemKey {
-	out := make([]SystemKey, 0, len(items))
-	for _, it := range items {
-		out = append(out, SystemKey{
-			ID:         toInt(it["id"]),
-			Name:       toStr(it["name"]),
-			Prefix:     toStr(it["prefix"]),
-			Hash:       toStr(it["hash"]),
-			Role:       toStr(it["role"]),
-			Dataset:    toStr(it["dataset"]),
-			CreatedAt:  toStr(it["created_at"]),
-			LastUsedAt: toStr(it["last_used_at"]),
-			RevokedAt:  toStr(it["revoked_at"]),
-		})
-	}
-	return out
-}
-
-// toStr coerces a content value to a string, tolerating the absence of a key.
-func toStr(v any) string {
-	if v == nil {
-		return ""
-	}
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return fmt.Sprintf("%v", v)
-}
-
-// toInt coerces a content value to an int. After a JSON round-trip numbers
-// arrive as float64; freshly-created records hold a Go int.
-func toInt(v any) int {
-	switch n := v.(type) {
-	case int:
-		return n
-	case int64:
-		return int(n)
-	case float64:
-		return int(n)
-	}
-	return 0
 }
