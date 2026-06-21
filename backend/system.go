@@ -24,6 +24,7 @@ func syncSystemCredentials(cfg auth.Config) {
 			continue // revoked keys must not authenticate
 		}
 		keys = append(keys, auth.SystemKeyCred{
+			Prefix:  k.Prefix,
 			Hash:    k.Hash,
 			Role:    k.Role,
 			Dataset: k.Dataset,

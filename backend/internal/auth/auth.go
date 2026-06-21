@@ -91,8 +91,10 @@ func (c Config) Datasets() []string {
 	}
 	if c.system != nil {
 		c.system.mu.RLock()
-		for _, k := range c.system.keys {
-			add(k.Dataset)
+		for _, bucket := range c.system.keysByPrefix {
+			for _, k := range bucket {
+				add(k.Dataset)
+			}
 		}
 		for _, u := range c.system.users {
 			add(u.Dataset)
