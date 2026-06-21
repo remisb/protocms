@@ -100,16 +100,12 @@ func (r *Registry) System() *SystemStore {
 
 // Users returns all user records.
 func (s *SystemStore) Users() []SystemUser {
-	s.d.mu.RLock()
-	defer s.d.mu.RUnlock()
-	return decodeUsers(s.d.content[systemUsersCollection])
+	return decodeUsers(s.d.CollectionItems(systemUsersCollection))
 }
 
 // UserByName returns the user with the given username, or ErrNotFound.
 func (s *SystemStore) UserByName(username string) (SystemUser, error) {
-	s.d.mu.RLock()
-	defer s.d.mu.RUnlock()
-	for _, u := range decodeUsers(s.d.content[systemUsersCollection]) {
+	for _, u := range s.Users() {
 		if u.Username == username {
 			return u, nil
 		}
@@ -126,55 +122,56 @@ func (s *SystemStore) CreateUser(username, password, role, dataset string) (Syst
 	}
 	now := nowUTC().Format(time.RFC3339)
 
-	s.d.mu.Lock()
-	defer s.d.mu.Unlock()
-	users := decodeUsers(s.d.content[systemUsersCollection])
-	for _, u := range users {
-		if u.Username == username {
-			return SystemUser{}, ErrUserExists
-		}
+	var created SystemUser
+	_, err = s.d.AppendCollectionItem(
+		systemUsersCollection,
+		func(items []ContentItem) error {
+			for _, u := range decodeUsers(items) {
+				if u.Username == username {
+					return ErrUserExists
+				}
+			}
+			return nil
+		},
+		func(id int) ContentItem {
+			created = SystemUser{
+				ID:           id,
+				Username:     username,
+				PasswordHash: hash,
+				Role:         role,
+				Dataset:      dataset,
+				Status:       UserStatusActive,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			}
+			return encodeRecord(created)
+		},
+	)
+	if err != nil {
+		return SystemUser{}, err
 	}
-	u := SystemUser{
-		ID:           s.d.nextID,
-		Username:     username,
-		PasswordHash: hash,
-		Role:         role,
-		Dataset:      dataset,
-		Status:       UserStatusActive,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-	s.d.nextID++
-	users = append(users, u)
-	s.d.content[systemUsersCollection] = encodeUsers(users)
-	s.d.persistLocked()
-	return u, nil
+	return created, nil
 }
 
 // DeleteUser removes the user with the given id, reporting whether one was
 // found.
 func (s *SystemStore) DeleteUser(id int) bool {
-	s.d.mu.Lock()
-	defer s.d.mu.Unlock()
-	users := decodeUsers(s.d.content[systemUsersCollection])
-	for i, u := range users {
-		if u.ID == id {
-			users = append(users[:i], users[i+1:]...)
-			s.d.content[systemUsersCollection] = encodeUsers(users)
-			s.d.persistLocked()
-			return true
+	return s.d.MutateCollection(systemUsersCollection, func(items []ContentItem) ([]ContentItem, bool) {
+		users := decodeUsers(items)
+		for i, u := range users {
+			if u.ID == id {
+				return encodeUsers(append(users[:i], users[i+1:]...)), true
+			}
 		}
-	}
-	return false
+		return items, false
+	})
 }
 
 // --- API keys ------------------------------------------------------------
 
 // Keys returns all API key records (including revoked ones).
 func (s *SystemStore) Keys() []SystemKey {
-	s.d.mu.RLock()
-	defer s.d.mu.RUnlock()
-	return decodeKeys(s.d.content[systemKeysCollection])
+	return decodeKeys(s.d.CollectionItems(systemKeysCollection))
 }
 
 // CreateKey generates a new random API key, stores its hash, and returns both
@@ -195,43 +192,44 @@ func (s *SystemStore) CreateKey(name, role, dataset string) (SystemKey, string, 
 	}
 	now := nowUTC().Format(time.RFC3339)
 
-	s.d.mu.Lock()
-	defer s.d.mu.Unlock()
-	keys := decodeKeys(s.d.content[systemKeysCollection])
-	k := SystemKey{
-		ID:        s.d.nextID,
-		Name:      name,
-		Prefix:    prefix,
-		Hash:      hash,
-		Role:      role,
-		Dataset:   dataset,
-		CreatedAt: now,
+	var created SystemKey
+	if _, err := s.d.AppendCollectionItem(systemKeysCollection, nil, func(id int) ContentItem {
+		created = SystemKey{
+			ID:        id,
+			Name:      name,
+			Prefix:    prefix,
+			Hash:      hash,
+			Role:      role,
+			Dataset:   dataset,
+			CreatedAt: now,
+		}
+		return encodeRecord(created)
+	}); err != nil {
+		return SystemKey{}, "", err
 	}
-	s.d.nextID++
-	keys = append(keys, k)
-	s.d.content[systemKeysCollection] = encodeKeys(keys)
-	s.d.persistLocked()
-	return k, plaintext, nil
+	return created, plaintext, nil
 }
 
 // RevokeKey marks the key with the given id as revoked, reporting whether one
-// was found.
+// was found. An already-revoked key is treated as found (idempotent) without a
+// redundant write.
 func (s *SystemStore) RevokeKey(id int) bool {
-	s.d.mu.Lock()
-	defer s.d.mu.Unlock()
-	keys := decodeKeys(s.d.content[systemKeysCollection])
-	for i, k := range keys {
-		if k.ID == id {
-			if k.RevokedAt != "" {
-				return true // already revoked
+	found := false
+	s.d.MutateCollection(systemKeysCollection, func(items []ContentItem) ([]ContentItem, bool) {
+		keys := decodeKeys(items)
+		for i, k := range keys {
+			if k.ID == id {
+				found = true
+				if k.RevokedAt != "" {
+					return items, false // already revoked: no write
+				}
+				keys[i].RevokedAt = nowUTC().Format(time.RFC3339)
+				return encodeKeys(keys), true
 			}
-			keys[i].RevokedAt = nowUTC().Format(time.RFC3339)
-			s.d.content[systemKeysCollection] = encodeKeys(keys)
-			s.d.persistLocked()
-			return true
 		}
-	}
-	return false
+		return items, false
+	})
+	return found
 }
 
 // HasAdmin reports whether any active (non-revoked) credential grants the
@@ -305,21 +303,28 @@ func decodeUsers(items []ContentItem) []SystemUser { return decodeRecords[System
 func encodeKeys(keys []SystemKey) []ContentItem    { return encodeRecords(keys) }
 func decodeKeys(items []ContentItem) []SystemKey   { return decodeRecords[SystemKey](items) }
 
+// encodeRecord marshals a single typed record into a ContentItem map via its
+// json tags. It returns an empty item if the record cannot be marshaled (it
+// cannot happen for the plain string/int structs used here).
+func encodeRecord[T any](record T) ContentItem {
+	b, err := json.Marshal(record)
+	if err != nil {
+		return ContentItem{}
+	}
+	var item ContentItem
+	if err := json.Unmarshal(b, &item); err != nil {
+		return ContentItem{}
+	}
+	return item
+}
+
 // encodeRecords marshals typed records into ContentItem maps via their json
 // tags. A record that fails to marshal is skipped (it cannot happen for the
 // plain string/int structs used here).
 func encodeRecords[T any](records []T) []ContentItem {
 	out := make([]ContentItem, 0, len(records))
 	for _, r := range records {
-		b, err := json.Marshal(r)
-		if err != nil {
-			continue
-		}
-		var item ContentItem
-		if err := json.Unmarshal(b, &item); err != nil {
-			continue
-		}
-		out = append(out, item)
+		out = append(out, encodeRecord(r))
 	}
 	return out
 }

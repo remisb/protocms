@@ -214,17 +214,16 @@ func TestHasAdminIgnoresInactiveAdmin(t *testing.T) {
 		t.Fatal("active admin not counted")
 	}
 
-	// Disable the sole admin by clearing its status, then re-persist.
-	users := decodeUsers(sys.d.content[systemUsersCollection])
-	for i := range users {
-		if users[i].ID == u.ID {
-			users[i].Status = "disabled"
+	// Disable the sole admin by changing its status, via the collection API.
+	sys.d.MutateCollection(systemUsersCollection, func(items []ContentItem) ([]ContentItem, bool) {
+		users := decodeUsers(items)
+		for i := range users {
+			if users[i].ID == u.ID {
+				users[i].Status = "disabled"
+			}
 		}
-	}
-	sys.d.mu.Lock()
-	sys.d.content[systemUsersCollection] = encodeUsers(users)
-	sys.d.persistLocked()
-	sys.d.mu.Unlock()
+		return encodeUsers(users), true
+	})
 
 	if sys.HasAdmin() {
 		t.Fatal("HasAdmin counted a disabled admin; bootstrap guard would stay silent during a lockout")
