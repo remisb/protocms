@@ -1,6 +1,9 @@
 package store
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestHashSecretRoundTrip(t *testing.T) {
 	hash, err := HashSecret("hunter2")
@@ -155,6 +158,51 @@ func TestSystemStoreHasAdmin(t *testing.T) {
 	}
 }
 
+func TestRecordRoundTrip(t *testing.T) {
+	// encode -> ContentItem (as persisted) -> decode must preserve all fields,
+	// including ints that come back as float64 after a JSON load.
+	in := []SystemKey{{
+		ID: 7, Name: "ci", Prefix: "pck_dead", Hash: "salt$hash",
+		Role: "editor", Dataset: "blog", CreatedAt: "2026-01-01T00:00:00Z",
+		RevokedAt: "2026-02-01T00:00:00Z",
+	}}
+	items := encodeKeys(in)
+
+	// Simulate a disk round-trip so numeric fields arrive as float64.
+	blob, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var loaded []ContentItem
+	if err := json.Unmarshal(blob, &loaded); err != nil {
+		t.Fatal(err)
+	}
+
+	out := decodeKeys(loaded)
+	if len(out) != 1 {
+		t.Fatalf("got %d keys, want 1", len(out))
+	}
+	if out[0] != in[0] {
+		t.Fatalf("round-trip mismatch:\n got %+v\nwant %+v", out[0], in[0])
+	}
+}
+
+func TestDecodeRecordsSkipsMalformed(t *testing.T) {
+	// A record whose typed field has the wrong JSON shape (id as a string)
+	// must be skipped, not abort the whole decode; the good record survives.
+	items := []ContentItem{
+		{"id": "not-a-number", "name": "bad"},
+		{"id": 5, "name": "good", "role": "editor"},
+	}
+	out := decodeKeys(items)
+	if len(out) != 1 {
+		t.Fatalf("got %d keys, want 1 (malformed record should be skipped)", len(out))
+	}
+	if out[0].Name != "good" || out[0].ID != 5 {
+		t.Fatalf("surviving record wrong: %+v", out[0])
+	}
+}
+
 func TestSystemUserActive(t *testing.T) {
 	cases := map[string]bool{
 		"active":   true,
@@ -182,17 +230,16 @@ func TestHasAdminIgnoresInactiveAdmin(t *testing.T) {
 		t.Fatal("active admin not counted")
 	}
 
-	// Disable the sole admin by clearing its status, then re-persist.
-	users := decodeUsers(sys.d.content[systemUsersCollection])
-	for i := range users {
-		if users[i].ID == u.ID {
-			users[i].Status = "disabled"
+	// Disable the sole admin by changing its status, via the collection API.
+	sys.d.MutateCollection(systemUsersCollection, func(items []ContentItem) ([]ContentItem, bool) {
+		users := decodeUsers(items)
+		for i := range users {
+			if users[i].ID == u.ID {
+				users[i].Status = "disabled"
+			}
 		}
-	}
-	sys.d.mu.Lock()
-	sys.d.content[systemUsersCollection] = encodeUsers(users)
-	sys.d.persistLocked()
-	sys.d.mu.Unlock()
+		return encodeUsers(users), true
+	})
 
 	if sys.HasAdmin() {
 		t.Fatal("HasAdmin counted a disabled admin; bootstrap guard would stay silent during a lockout")

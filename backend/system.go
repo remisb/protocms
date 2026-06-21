@@ -24,6 +24,7 @@ func syncSystemCredentials(cfg auth.Config) {
 			continue // revoked keys must not authenticate
 		}
 		keys = append(keys, auth.SystemKeyCred{
+			Prefix:  k.Prefix,
 			Hash:    k.Hash,
 			Role:    k.Role,
 			Dataset: k.Dataset,
@@ -87,7 +88,7 @@ func systemUsersHandler(cfg auth.Config) http.HandlerFunc {
 				http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 				return
 			}
-			if req.Username == "" || req.Password == "" || !validSystemRole(req.Role) {
+			if req.Username == "" || req.Password == "" || !auth.ValidRole(req.Role) {
 				http.Error(w, `{"error":"username, password, and a valid role (admin|editor) are required"}`, http.StatusBadRequest)
 				return
 			}
@@ -149,7 +150,7 @@ func systemKeysHandler(cfg auth.Config) http.HandlerFunc {
 				http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 				return
 			}
-			if req.Name == "" || !validSystemRole(req.Role) {
+			if req.Name == "" || !auth.ValidRole(req.Role) {
 				http.Error(w, `{"error":"name and a valid role (admin|editor) are required"}`, http.StatusBadRequest)
 				return
 			}
@@ -196,12 +197,6 @@ func deleteSystemKeyHandler(cfg auth.Config) http.HandlerFunc {
 		syncSystemCredentials(cfg)
 		jsonResponse(w, http.StatusNoContent, nil)
 	}
-}
-
-// validSystemRole mirrors the hard-coded role set; kept local so the handlers
-// reject bad input before reaching the store.
-func validSystemRole(role string) bool {
-	return role == "admin" || role == "editor"
 }
 
 // redactUser strips the password hash from a user record before it leaves the

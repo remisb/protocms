@@ -9,10 +9,21 @@ import (
 // plaintext prefixed with "h:", so tests need no real hashing.
 func fakeVerify(stored, secret string) bool { return stored == "h:"+secret }
 
+// keyFor builds a SystemKeyCred for a given plaintext token, deriving a
+// realistic prefix so the prefix index (not just the empty-prefix bucket) is
+// exercised.
+func keyFor(token, role, dataset string) SystemKeyCred {
+	prefix := token
+	if len(prefix) > 4 {
+		prefix = prefix[:4]
+	}
+	return SystemKeyCred{Prefix: prefix, Hash: "h:" + token, Role: role, Dataset: dataset, Verify: fakeVerify}
+}
+
 func TestNewVerifierSystemKey(t *testing.T) {
 	cfg := LoadConfig() // no env credentials
 	cfg.SetSystemCredentials([]SystemKeyCred{
-		{Hash: "h:systok", Role: "editor", Dataset: "blog", Verify: fakeVerify},
+		keyFor("systok", "editor", "blog"),
 	}, nil)
 
 	verify := NewVerifier(cfg)
@@ -34,7 +45,7 @@ func TestEnvKeyOverridesSystemKey(t *testing.T) {
 	t.Setenv("PROTOCMS_API_KEYS", "tok:admin:envds")
 	cfg := LoadConfig()
 	cfg.SetSystemCredentials([]SystemKeyCred{
-		{Hash: "h:tok", Role: "editor", Dataset: "sysds", Verify: fakeVerify},
+		keyFor("tok", "editor", "sysds"),
 	}, nil)
 
 	verify := NewVerifier(cfg)
@@ -55,7 +66,7 @@ func TestEnvKeyOverridesSystemKey(t *testing.T) {
 func TestSystemKeyDatasetResolves(t *testing.T) {
 	cfg := LoadConfig()
 	cfg.SetSystemCredentials([]SystemKeyCred{
-		{Hash: "h:k", Role: "editor", Dataset: "shop", Verify: fakeVerify},
+		keyFor("k", "editor", "shop"),
 	}, nil)
 	ds, ok := cfg.ResolveDataset("k")
 	if !ok || ds != "shop" {
@@ -120,11 +131,47 @@ func TestHasAdminAPIKey(t *testing.T) {
 	}
 }
 
+func TestResolveSystemKeyHashesOnlyPrefixCandidates(t *testing.T) {
+	cfg := LoadConfig()
+
+	// Count Verify calls to prove non-matching-prefix keys are never hashed.
+	var hashed int
+	counting := func(stored, secret string) bool {
+		hashed++
+		return stored == "h:"+secret
+	}
+	mk := func(prefix, token, ds string) SystemKeyCred {
+		return SystemKeyCred{Prefix: prefix, Hash: "h:" + token, Role: "editor", Dataset: ds, Verify: counting}
+	}
+	cfg.SetSystemCredentials([]SystemKeyCred{
+		mk("aaaa", "aaaa-real", "dsA"),
+		mk("bbbb", "bbbb-other", "dsB"),
+		mk("cccc", "cccc-other", "dsC"),
+	}, nil)
+
+	ds, ok := cfg.ResolveDataset("aaaa-real")
+	if !ok || ds != "dsA" {
+		t.Fatalf("ResolveDataset = %q,%v; want dsA,true", ds, ok)
+	}
+	if hashed != 1 {
+		t.Fatalf("hashed %d keys; want 1 (only the prefix-matching candidate)", hashed)
+	}
+
+	// A token with no matching prefix hashes nothing.
+	hashed = 0
+	if _, ok := cfg.ResolveDataset("zzzz-nope"); ok {
+		t.Fatal("resolved a token with no matching prefix")
+	}
+	if hashed != 0 {
+		t.Fatalf("hashed %d keys for an unmatched prefix; want 0", hashed)
+	}
+}
+
 func TestDatasetsIncludesSystem(t *testing.T) {
 	t.Setenv("PROTOCMS_API_KEYS", "tok:admin:envds")
 	cfg := LoadConfig()
 	cfg.SetSystemCredentials([]SystemKeyCred{
-		{Hash: "h:k", Role: "editor", Dataset: "sysds", Verify: fakeVerify},
+		keyFor("k", "editor", "sysds"),
 	}, map[string]SystemUserCred{
 		"u": {PasswordHash: "h:p", Role: "editor", Dataset: "userds", Verify: fakeVerify},
 	})

@@ -12,7 +12,10 @@ import "sync"
 
 // SystemKeyCred is a hashed API key sourced from the _system dataset. The
 // plaintext is never held; Verify checks a presented token against Hash.
+// Prefix is the key's non-secret leading characters, used to index candidates
+// so token resolution does not hash every stored key.
 type SystemKeyCred struct {
+	Prefix  string // non-secret leading chars of the key (e.g. "pck_dead")
 	Hash    string // salted hash, verified via Verify
 	Role    string
 	Dataset string
@@ -31,10 +34,16 @@ type SystemUserCred struct {
 // systemLayer holds the credentials merged in from _system. It is replaced
 // wholesale on every _system write (see SetSystemCredentials), so reads take a
 // snapshot under the lock.
+//
+// keysByPrefix indexes the keys by their non-secret prefix so resolving a
+// presented token hashes only the (usually one) candidate sharing its prefix,
+// not every stored key. prefixLens is the distinct set of prefix lengths
+// present, so a lookup knows how to slice the token.
 type systemLayer struct {
-	mu    sync.RWMutex
-	keys  []SystemKeyCred
-	users map[string]SystemUserCred
+	mu           sync.RWMutex
+	keysByPrefix map[string][]SystemKeyCred
+	prefixLens   []int
+	users        map[string]SystemUserCred
 }
 
 // SetSystemCredentials replaces the _system credential layer. Call it at
@@ -44,8 +53,20 @@ func (c *Config) SetSystemCredentials(keys []SystemKeyCred, users map[string]Sys
 	if c.system == nil {
 		c.system = &systemLayer{}
 	}
+	byPrefix := make(map[string][]SystemKeyCred, len(keys))
+	lenSet := make(map[int]bool)
+	for _, k := range keys {
+		byPrefix[k.Prefix] = append(byPrefix[k.Prefix], k)
+		lenSet[len(k.Prefix)] = true
+	}
+	lens := make([]int, 0, len(lenSet))
+	for l := range lenSet {
+		lens = append(lens, l)
+	}
+
 	c.system.mu.Lock()
-	c.system.keys = keys
+	c.system.keysByPrefix = byPrefix
+	c.system.prefixLens = lens
 	c.system.users = users
 	c.system.mu.Unlock()
 }
@@ -59,9 +80,16 @@ func (c Config) resolveSystemKey(token string) (role, dataset string, ok bool) {
 	}
 	c.system.mu.RLock()
 	defer c.system.mu.RUnlock()
-	for _, k := range c.system.keys {
-		if k.Verify != nil && k.Verify(k.Hash, token) {
-			return k.Role, k.Dataset, true
+	// Only candidates sharing the token's prefix can match, so hash just those
+	// rather than every stored key.
+	for _, l := range c.system.prefixLens {
+		if l > len(token) {
+			continue
+		}
+		for _, k := range c.system.keysByPrefix[token[:l]] {
+			if k.Verify != nil && k.Verify(k.Hash, token) {
+				return k.Role, k.Dataset, true
+			}
 		}
 	}
 	return "", "", false
