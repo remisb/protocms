@@ -20,8 +20,8 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Go workspace file
-go.work
+# Go workspace file — go.work is committed so `go run ./backend` works from the
+# repo root (the backend module lives in backend/); go.work.sum stays ignored.
 go.work.sum
 
 # env file

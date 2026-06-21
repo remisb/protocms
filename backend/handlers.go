@@ -32,6 +32,12 @@ func datasetForRequest(w http.ResponseWriter, r *http.Request) *store.Dataset {
 		http.Error(w, `{"error":"no dataset bound to credential"}`, http.StatusForbidden)
 		return nil
 	}
+	// Reserved datasets (e.g. _system) are internal-only and must never be
+	// reachable through the tenant content API.
+	if store.ReservedDatasetName(name) {
+		http.Error(w, `{"error":"dataset not accessible"}`, http.StatusForbidden)
+		return nil
+	}
 	reg := store.DefaultRegistry()
 	if d, ok := reg.Get(name); ok {
 		return d

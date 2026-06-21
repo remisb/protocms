@@ -1,0 +1,55 @@
+{
+  "next_id": 5,
+  "schemas": {
+    "ProductCategory": {
+      "name": "ProductCategory",
+      "fields": {
+        "body": {
+          "type": "text"
+        },
+        "title": {
+          "type": "text",
+          "required": true
+        }
+      }
+    },
+    "post": {
+      "name": "post",
+      "fields": {
+        "body": {
+          "type": "textarea"
+        },
+        "title": {
+          "type": "text",
+          "required": true
+        }
+      }
+    }
+  },
+  "content": {
+    "ProductCategory": [
+      {
+        "body": "Headphones body",
+        "id": 3,
+        "title": "Headphones title"
+      },
+      {
+        "body": "Speakers body",
+        "id": 4,
+        "title": "Speakers title"
+      }
+    ],
+    "post": [
+      {
+        "body": "World",
+        "id": 1,
+        "title": "Hello"
+      },
+      {
+        "body": "Post 2 body !",
+        "id": 2,
+        "title": "Post 2"
+      }
+    ]
+  }
+}

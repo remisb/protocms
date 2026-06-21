@@ -22,6 +22,13 @@ tags:
     description: Manage content items for a given content type
   - name: Datasets
     description: Admin-only management of in-memory datasets
+  - name: System
+    description: >-
+      Admin-only management of the reserved `_system` dataset: users and API
+      keys. `_system` is the source of truth for credentials; env vars
+      (`PROTOCMS_API_KEYS`, `PROTOCMS_USERS`) act as a debug override that wins
+      on conflict. The dataset is internal-only and not reachable through the
+      content API.
   - name: Uploads
     description: Per-dataset image uploads
 
@@ -585,6 +592,201 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/system/users:
+    get:
+      summary: List system users
+      operationId: listSystemUsers
+      tags: [System]
+      description: Requires a bearer token with the `admin` role. Password hashes are never returned.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of system users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      summary: Create a system user
+      operationId: createSystemUser
+      tags: [System]
+      description: |
+        Requires a bearer token with the `admin` role. The password is stored
+        hashed; it is never returned. An env-configured user with the same
+        username (via `PROTOCMS_USERS`) shadows this record at login time.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemUserCreate'
+            example:
+              username: editor1
+              password: s3cret
+              role: editor
+              dataset: blog
+      responses:
+        '201':
+          description: Created user (without password hash)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemUser'
+        '400':
+          description: Missing/invalid fields (username, password, or role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: A user with that username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/system/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/systemId'
+
+    delete:
+      summary: Delete a system user
+      operationId: deleteSystemUser
+      tags: [System]
+      description: Requires a bearer token with the `admin` role.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: User deleted (no body)
+        '400':
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/system/keys:
+    get:
+      summary: List API keys
+      operationId: listSystemKeys
+      tags: [System]
+      description: |
+        Requires a bearer token with the `admin` role. The stored key hash is
+        never returned; only a non-secret prefix is shown for identification.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of API key records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      summary: Create an API key
+      operationId: createSystemKey
+      tags: [System]
+      description: |
+        Requires a bearer token with the `admin` role. Generates a new random
+        key, stores only its salted hash, and returns the plaintext **once** in
+        the response. The key authenticates immediately (no restart) and serves
+        data from its bound `dataset`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemKeyCreate'
+            example:
+              name: ci
+              role: editor
+              dataset: blog
+      responses:
+        '201':
+          description: Created key, including the one-time plaintext value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemKeyCreated'
+        '400':
+          description: Missing/invalid fields (name or role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/system/keys/{id}:
+    parameters:
+      - $ref: '#/components/parameters/systemId'
+
+    delete:
+      summary: Revoke an API key
+      operationId: revokeSystemKey
+      tags: [System]
+      description: |
+        Requires a bearer token with the `admin` role. Sets `revoked_at` and
+        removes the key from the active credential set immediately (no restart).
+        The record is retained for audit; it is not deleted.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Key revoked (no body)
+        '400':
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/uploads:
     post:
       summary: Upload an image to the caller's dataset
@@ -685,9 +887,11 @@ components:
       type: http
       scheme: bearer
       description: |
-        A bearer token that is either a static API key (configured via
-        `PROTOCMS_API_KEYS`) or an HS256 JWT obtained from `POST /api/login`.
-        The token's role (`admin` or `editor`) governs which writes are allowed.
+        A bearer token that is either a static API key (from the `_system`
+        dataset, or `PROTOCMS_API_KEYS` as a debug override) or an HS256 JWT
+        obtained from `POST /api/login`. The token's role (`admin` or `editor`)
+        governs which writes are allowed, and the credential's bound dataset
+        determines which data it accesses.
 
   responses:
     Unauthorized:
@@ -730,6 +934,15 @@ components:
       schema:
         type: string
         example: default
+
+    systemId:
+      name: id
+      in: path
+      required: true
+      description: Numeric ID of the system record (user or API key)
+      schema:
+        type: integer
+        example: 1
 
   schemas:
     FieldType:
@@ -978,3 +1191,128 @@ components:
           type: string
           description: The original client-supplied filename.
           example: logo.png
+
+    SystemUser:
+      type: object
+      description: A user record in the _system dataset. The password hash is never exposed.
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: editor1
+        role:
+          type: string
+          enum: [admin, editor]
+          example: editor
+        dataset:
+          type: string
+          description: Dataset this user is bound to.
+          example: blog
+        status:
+          type: string
+          example: active
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SystemUserCreate:
+      type: object
+      required: [username, password, role]
+      properties:
+        username:
+          type: string
+          example: editor1
+        password:
+          type: string
+          description: Stored hashed; never returned.
+          example: s3cret
+        role:
+          type: string
+          enum: [admin, editor]
+          example: editor
+        dataset:
+          type: string
+          description: Dataset to bind the user to. Defaults to `default` if omitted.
+          example: blog
+
+    SystemKey:
+      type: object
+      description: An API key record in the _system dataset. The stored hash is never exposed.
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: ci
+        prefix:
+          type: string
+          description: Non-secret leading characters of the key, for identification.
+          example: pck_d9d4
+        role:
+          type: string
+          enum: [admin, editor]
+          example: editor
+        dataset:
+          type: string
+          description: Dataset this key serves data from.
+          example: blog
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          description: Present once the key has been used.
+        revoked_at:
+          type: string
+          format: date-time
+          description: Present once the key has been revoked.
+
+    SystemKeyCreate:
+      type: object
+      required: [name, role]
+      properties:
+        name:
+          type: string
+          example: ci
+        role:
+          type: string
+          enum: [admin, editor]
+          example: editor
+        dataset:
+          type: string
+          description: Dataset to bind the key to. Defaults to `default` if omitted.
+          example: blog
+
+    SystemKeyCreated:
+      type: object
+      description: >-
+        Returned once on creation. Includes the plaintext `key`, which is never
+        retrievable again.
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: ci
+        prefix:
+          type: string
+          example: pck_d9d4
+        role:
+          type: string
+          enum: [admin, editor]
+          example: editor
+        dataset:
+          type: string
+          example: blog
+        key:
+          type: string
+          description: The one-time plaintext API key. Store it now; it is not recoverable.
+          example: pck_d9d4b798f96d0e2f8aa8d074b3847aa760c578d4c27c5155
