@@ -66,6 +66,7 @@ func loadMetadata(dir string) (Metadata, error) {
 
 // saveMetadata writes meta.json into a dataset directory atomically
 // (temp file + rename).
+// REMIS why it is not a method of Dataset structure
 func saveMetadata(dir string, m Metadata) error {
 	if m.Tags == nil {
 		m.Tags = []string{}

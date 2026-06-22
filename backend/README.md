@@ -86,15 +86,6 @@ curl http://localhost:8080/api/content/dish -H "Authorization: Bearer $TOKEN"
 curl http://localhost:8080/api/me -H "Authorization: Bearer $TOKEN"   # shows the bound dataset
 ```
 
-#### Migrating a dataset to the folder format
-
-Convert a legacy flat-file dataset to the new `data/<name>/` layout. This never
-deletes the old file and refuses to overwrite an existing folder:
-
-```sh
-go run ./backend -migrate -dataset blog
-```
-
 Uploads referenced by the dataset are moved into `data/blog/uploads/` and their
 stored URLs are rewritten. The command prints a summary and exits without
 starting the server.
