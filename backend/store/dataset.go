@@ -73,15 +73,12 @@ type DatasetStats struct {
 // A dataset is stored in one of two on-disk layouts (see format):
 //
 //	v2 (current): a folder data/<name>/ holding data.json + meta.json
-//	v1 (legacy):  a flat file data/<name>.json (read + written in place,
-//	              with no metadata, until migrated)
 type Dataset struct {
 	mu      sync.RWMutex
 	name    string
-	format  int      // formatVersionCurrent (folder) or formatVersionLegacy (flat file)
-	dir     string   // data/<name>      (v2)
-	flatPath string  // data/<name>.json (v1)
-	meta    Metadata // populated for v2; zero-ish for v1
+	format  int      // formatVersionCurrent (folder)
+	dir     string   // data/<name>  (v2)
+	meta    Metadata // populated for v2
 	schemas map[string]ContentType
 	content map[string][]ContentItem
 	nextID  int
@@ -99,19 +96,6 @@ func newFolderDataset(name, dir string, meta Metadata) *Dataset {
 		content: make(map[string][]ContentItem),
 		nextID:  1,
 		metrics: newMetrics(),
-	}
-}
-
-// newLegacyDataset returns an empty dataset backed by the v1 flat file.
-func newLegacyDataset(name, flatPath string) *Dataset {
-	return &Dataset{
-		name:     name,
-		format:   formatVersionLegacy,
-		flatPath: flatPath,
-		schemas:  make(map[string]ContentType),
-		content:  make(map[string][]ContentItem),
-		nextID:   1,
-		metrics:  newMetrics(),
 	}
 }
 
@@ -137,8 +121,7 @@ type MetaPatch struct {
 	SchemaVersion *int      `json:"schema_version,omitempty"`
 }
 
-// UpdateMeta applies a metadata patch and persists it. Only legacy v1
-// datasets reject this (no meta.json); they return an error.
+// UpdateMeta applies a metadata patch and persists it.
 func (d *Dataset) UpdateMeta(p MetaPatch) (Metadata, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -179,15 +162,14 @@ func (d *Dataset) dataPath() string {
 	if d.format == formatVersionCurrent {
 		return filepath.Join(d.dir, dataFileName)
 	}
-	return d.flatPath
+	return ""
 }
 
 // uploadsSubdir is the per-dataset uploads folder name inside a v2 dataset.
 const uploadsSubdir = "uploads"
 
 // UploadDir returns the dataset's uploads directory (data/<name>/uploads),
-// creating it if needed. Only v2 folder datasets support uploads; legacy v1
-// datasets return an error (migrate them first).
+// creating it if needed. Only v2 folder datasets support uploads.
 func (d *Dataset) UploadDir() (string, error) {
 	if d.format != formatVersionCurrent {
 		return "", fmt.Errorf("dataset %q is in legacy format; migrate it to enable uploads", d.name)

@@ -9,10 +9,8 @@ import (
 
 // Data format versions for the on-disk container layout.
 //
-//	v1 = legacy flat file  data/<name>.json
 //	v2 = folder            data/<name>/{data.json,meta.json}
 const (
-	formatVersionLegacy  = 1
 	formatVersionCurrent = 2
 )
 

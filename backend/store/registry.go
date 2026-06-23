@@ -23,9 +23,8 @@ func NewRegistry() *Registry {
 // Load reads the named dataset from disk and inserts it into the registry,
 // replacing any existing entry. It returns the loaded dataset.
 //
-// Format is detected on disk: a v2 folder (data/<name>/) is preferred; if
-// only the legacy flat file (data/<name>.json) exists it is served in place
-// (read + written as v1) with a warning to migrate. If neither exists, a new
+// Format is detected on disk: a v2 folder (data/<name>/) is preferred.
+// If neither exists, a new
 // empty v2 folder-backed dataset is created in memory (persisted on first
 // write).
 func (r *Registry) Load(name string) *Dataset {
@@ -41,7 +40,6 @@ func (r *Registry) Load(name string) *Dataset {
 // Dataset bound to it.
 func openDataset(name string) *Dataset {
 	dir := filepath.Join(dataDir, name)
-	flat := filepath.Join(dataDir, name+".json")
 
 	if isDir(dir) {
 		meta, err := loadMetadata(dir)
@@ -51,12 +49,6 @@ func openDataset(name string) *Dataset {
 			meta = newMetadata(name, nowUTC())
 		}
 		return newFolderDataset(name, dir, meta)
-	}
-
-	if fileExists(flat) {
-		slog.Warn("dataset is in the legacy flat-file format; run -migrate to upgrade",
-			"dataset", name, "file", flat)
-		return newLegacyDataset(name, flat)
 	}
 
 	// Neither exists: brand-new dataset, default to the current folder format.
@@ -117,4 +109,14 @@ func (r *Registry) List() []DatasetInfo {
 		out = append(out, d.Info())
 	}
 	return out
+}
+
+// System returns a typed accessor over the registry's _system dataset,
+// loading it if it is not already in memory.
+func (r *Registry) System() *SystemStore {
+	d, ok := r.Get(SystemDatasetName)
+	if !ok {
+		d = r.Load(SystemDatasetName)
+	}
+	return &SystemStore{d: d}
 }

@@ -45,8 +45,8 @@ func Init(dataset string) {
 }
 
 // Load reads the default dataset's persisted data from disk into memory and
-// registers it in the default registry. The on-disk format (v2 folder or v1
-// flat file) is detected automatically. Init must have run first.
+// registers it in the default registry. The on-disk format (v2 folder)
+// is detected automatically. Init must have run first.
 func Load(dataset string) {
 	d := defaultRegistry.Load(dataset)
 	defaultDataset = d

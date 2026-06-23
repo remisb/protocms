@@ -87,16 +87,6 @@ type SystemStore struct {
 	d *Dataset
 }
 
-// System returns a typed accessor over the registry's _system dataset,
-// loading it if it is not already in memory.
-func (r *Registry) System() *SystemStore {
-	d, ok := r.Get(SystemDatasetName)
-	if !ok {
-		d = r.Load(SystemDatasetName)
-	}
-	return &SystemStore{d: d}
-}
-
 // --- Users ---------------------------------------------------------------
 
 // Users returns all user records.
